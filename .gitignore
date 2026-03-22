@@ -3,5 +3,13 @@ __pycache__/
 *.pyo
 node_modules/
 dist/
+build/
 .env
 *.egg-info/
+*.egg
+.eggs/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+*.whl
