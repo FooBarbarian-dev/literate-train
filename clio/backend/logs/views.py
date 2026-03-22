@@ -1,3 +1,5 @@
+import logging
+
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -5,6 +7,8 @@ from drf_spectacular.utils import extend_schema, extend_schema_view
 from django_filters.rest_framework import DjangoFilterBackend
 
 from accounts.permissions import IsJWTAuthenticated, IsAdmin
+
+logger = logging.getLogger("clio.logs")
 from logs.filters import LogFilterSet
 from logs.models import Log
 from logs.serializers import LogCreateSerializer, LogUpdateSerializer, LogListSerializer
@@ -55,6 +59,7 @@ class LogViewSet(viewsets.ModelViewSet):
         log = create_log_with_encryption(serializer, self.request.user)
         auto_tag_with_operation(log.id, self.request.user.username)
         serializer.instance = log
+        logger.info("Log %d created by %s (host=%s)", log.id, self.request.user.username, log.hostname)
 
     def perform_update(self, serializer):
         log = self.get_object()
@@ -69,6 +74,7 @@ class LogViewSet(viewsets.ModelViewSet):
         if not self.request.user.is_admin:
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("Only admins can delete logs")
+        logger.info("Log %d deleted by %s", instance.id, self.request.user.username)
         instance.delete()
 
     @extend_schema(summary="Toggle lock on a log entry", tags=["logs"])
@@ -82,6 +88,7 @@ class LogViewSet(viewsets.ModelViewSet):
                 {"error": True, "message": str(e)},
                 status=status.HTTP_403_FORBIDDEN,
             )
+        logger.info("Log %d lock toggled by %s (locked=%s)", log.id, request.user.username, log.locked)
         return Response(LogListSerializer(log).data)
 
     @extend_schema(summary="Bulk delete logs (admin only)", tags=["logs"])
@@ -94,4 +101,5 @@ class LogViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         deleted_count = Log.objects.filter(id__in=ids).delete()[0]
+        logger.warning("Bulk delete: %d logs deleted by %s", deleted_count, request.user.username)
         return Response({"deleted": deleted_count})

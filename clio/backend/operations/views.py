@@ -1,3 +1,5 @@
+import logging
+
 from django.db.models import Count
 from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes
@@ -5,6 +7,8 @@ from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, extend_schema_view
 
 from accounts.permissions import IsJWTAuthenticated, IsAdmin
+
+logger = logging.getLogger("clio.operations")
 from operations.models import Operation, UserOperation
 from operations.serializers import (
     OperationSerializer,
@@ -56,6 +60,7 @@ class OperationViewSet(viewsets.ModelViewSet):
             created_by=self.request.user.username,
         )
         serializer.instance = op
+        logger.info("Operation '%s' created by %s", op.name, self.request.user.username)
 
     def perform_destroy(self, instance):
         instance.is_active = False
@@ -113,6 +118,10 @@ class OperationViewSet(viewsets.ModelViewSet):
             assigned_by=request.user.username,
             is_primary=serializer.validated_data.get("is_primary", False),
         )
+        logger.info("User '%s' assigned to operation %d by %s",
+                    serializer.validated_data["username"],
+                    serializer.validated_data["operation_id"],
+                    request.user.username)
         return Response(UserOperationSerializer(user_op).data, status=201)
 
     @extend_schema(summary="Remove user from operation (admin only)", tags=["operations"])

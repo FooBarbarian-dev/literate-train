@@ -1,7 +1,10 @@
 import json
+import logging
 import re
 
 from django.http import JsonResponse
+
+logger = logging.getLogger("clio.security")
 
 
 class SecurityHeadersMiddleware:
@@ -45,6 +48,8 @@ class CustomCsrfMiddleware:
         csrf_header = request.META.get("HTTP_X_CSRF_TOKEN")
 
         if not csrf_cookie or not csrf_header or csrf_cookie != csrf_header:
+            client_ip = request.META.get("REMOTE_ADDR", "unknown")
+            logger.warning("CSRF validation failed from IP %s on %s %s", client_ip, request.method, request.path)
             return JsonResponse(
                 {"error": "CSRF validation failed."},
                 status=403,

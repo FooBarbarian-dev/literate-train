@@ -14,3 +14,6 @@ CORS_ALLOW_CREDENTIALS = True
 
 # Use console email backend in development
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+# Set clio logger to DEBUG in development
+LOGGING["loggers"]["clio"]["level"] = "DEBUG"  # noqa: F405

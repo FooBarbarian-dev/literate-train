@@ -1,6 +1,9 @@
+import logging
 import os
 import secrets
 import time
+
+logger = logging.getLogger("clio.accounts.views")
 
 from django.middleware.csrf import get_token
 from rest_framework import status
@@ -52,11 +55,14 @@ def login_view(request):
 
     auth_result = authenticate_user(username, password)
     if not auth_result:
+        client_ip = request.META.get("REMOTE_ADDR", "unknown")
+        logger.warning("Login failed for user '%s' from IP %s", username, client_ip)
         return Response(
             {"error": True, "message": "Invalid credentials"},
             status=status.HTTP_401_UNAUTHORIZED,
         )
 
+    logger.info("Login successful for user '%s'", username)
     token, payload = issue_token(auth_result["username"], auth_result["role"])
 
     response = Response({
@@ -98,6 +104,7 @@ def login_view(request):
 def logout_view(request):
     user = request.user
     revoke_token(user.jti, user.username)
+    logger.info("User '%s' logged out", user.username)
 
     response = Response({"message": "Logged out successfully"})
     response.delete_cookie("auth_token")
@@ -139,6 +146,7 @@ def change_password_view(request):
         )
 
     change_password(request.user.username, request.user.role, new_password)
+    logger.info("Password changed for user '%s'", request.user.username)
 
     return Response({"message": "Password changed successfully"})
 

@@ -1,9 +1,12 @@
+import logging
 from datetime import datetime, timezone
 from typing import Optional
 
 from django.db import models
 
 from logs.encryption import encrypt_field
+
+logger = logging.getLogger("clio.logs.services")
 from logs.models import Log
 from tags.models import LogTag
 from common.redis_client import get_encrypted_redis
@@ -22,6 +25,7 @@ def create_log_with_encryption(serializer, user) -> Log:
         data["secrets"] = encrypt_field(secrets_value)
 
     log = Log.objects.create(analyst=user.username, **data)
+    logger.debug("Log %d created with encryption (analyst=%s)", log.id, user.username)
     return log
 
 
@@ -78,8 +82,8 @@ def auto_tag_with_operation(log_id: int, username: str) -> None:
                 tag_id=active_op_tag_id,
                 defaults={"tagged_by": username},
             )
-    except Exception:
-        pass  # Failure should not block log creation
+    except Exception as e:
+        logger.debug("Auto-tag failed for log %d: %s", log_id, e)
 
 
 def get_active_operation_tag(username: str) -> Optional[int]:

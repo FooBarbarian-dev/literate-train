@@ -75,6 +75,12 @@ a:hover {
   text-decoration: underline;
 }
 
+/* ---- Focus & Accessibility ---- */
+:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
 /* ---- Scrollbar ---- */
 ::-webkit-scrollbar {
   width: 8px;
@@ -89,6 +95,12 @@ a:hover {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-light) var(--bg-primary);
 }
 
 /* ---- Navigation ---- */
@@ -164,6 +176,8 @@ a:hover {
 .navbar-link.active {
   color: var(--accent-primary);
   background: rgba(59, 130, 246, 0.1);
+  border-bottom: 2px solid var(--accent-primary);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
 }
 
 .navbar-user {
@@ -466,6 +480,10 @@ a:hover {
   color: var(--text-secondary);
 }
 
+.data-table tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.015);
+}
+
 .data-table tbody tr:last-child td {
   border-bottom: none;
 }
@@ -556,11 +574,18 @@ a:hover {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 200;
   padding: 20px;
+  animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .modal {
@@ -616,11 +641,14 @@ a:hover {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   padding: 20px;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+  box-shadow: var(--shadow-sm);
 }
 
 .card:hover {
   border-color: var(--border-light);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 .card-active {
@@ -799,6 +827,82 @@ a:hover {
   cursor: pointer;
 }
 
+/* ---- Toast / Notification ---- */
+.toast-container {
+  position: fixed;
+  top: 72px;
+  right: 20px;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toast {
+  padding: 12px 18px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  box-shadow: var(--shadow-lg);
+  animation: slideIn 0.2s ease;
+  max-width: 360px;
+}
+
+.toast-success {
+  background: var(--accent-green-dim);
+  color: #86efac;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.toast-error {
+  background: var(--accent-red-dim);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* ---- Confirm Dialog ---- */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 250;
+}
+
+.confirm-dialog {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: var(--shadow-lg);
+}
+
+.confirm-dialog h3 {
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+
+.confirm-dialog p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 /* ---- Login ---- */
 .login-container {
   display: flex;
@@ -806,6 +910,10 @@ a:hover {
   justify-content: center;
   min-height: 100vh;
   background: var(--bg-primary);
+  background-image:
+    radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(168, 85, 247, 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 50% 80%, rgba(34, 197, 94, 0.02) 0%, transparent 50%);
   padding: 20px;
 }
 

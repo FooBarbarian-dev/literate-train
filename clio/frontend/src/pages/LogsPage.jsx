@@ -1,6 +1,21 @@
 import { useState, useEffect, useCallback } from 'react'
 import client from '../api/client'
 
+function timeAgo(dateStr) {
+  if (!dateStr) return ''
+  const now = new Date()
+  const date = new Date(dateStr)
+  const seconds = Math.floor((now - date) / 1000)
+  if (seconds < 60) return 'just now'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `${days}d ago`
+  return date.toLocaleDateString()
+}
+
 function LogModal({ log, onClose, onSave }) {
   const [form, setForm] = useState({
     hostname: log?.hostname || '',
@@ -18,6 +33,13 @@ function LogModal({ log, onClose, onSave }) {
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value })
   }
+
+  // Close on Escape
+  useEffect(() => {
+    const handleKey = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [onClose])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -72,6 +94,7 @@ function LogModal({ log, onClose, onSave }) {
                 onChange={handleChange}
                 placeholder="target-host"
                 required
+                autoFocus
               />
             </div>
             <div className="form-group">
@@ -218,6 +241,18 @@ export default function LogsPage() {
     fetchLogs()
   }, [fetchLogs])
 
+  // Keyboard shortcut: N to create new log
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.key === 'n' && !showModal && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'SELECT') {
+        e.preventDefault()
+        handleNewLog()
+      }
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [showModal])
+
   const handleFilterChange = (e) => {
     setFilters({ ...filters, [e.target.name]: e.target.value })
     setPage(1)
@@ -263,9 +298,14 @@ export default function LogsPage() {
     <div className="page">
       <div className="page-header">
         <h1>Log Entries</h1>
-        <button className="btn btn-primary" onClick={handleNewLog}>
-          + New Log
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+            Press <kbd style={{ padding: '1px 5px', background: 'var(--bg-tertiary)', borderRadius: '3px', border: '1px solid var(--border-color)', fontSize: '11px' }}>N</kbd> to create
+          </span>
+          <button className="btn btn-primary" onClick={handleNewLog}>
+            + New Log
+          </button>
+        </div>
       </div>
 
       <div className="filters-bar">
@@ -306,10 +346,15 @@ export default function LogsPage() {
         </div>
       ) : logs.length === 0 ? (
         <div className="empty-state">
-          <p>No log entries found.</p>
-          <button className="btn btn-primary" onClick={handleNewLog}>
-            Create your first log
-          </button>
+          <div style={{ fontSize: '36px', marginBottom: '12px', opacity: 0.3 }}>&#9776;</div>
+          <p>{filters.hostname || filters.ip_address || filters.status
+            ? 'No logs match your current filters.'
+            : 'No log entries found.'}</p>
+          {!filters.hostname && !filters.ip_address && !filters.status && (
+            <button className="btn btn-primary" onClick={handleNewLog}>
+              Create your first log
+            </button>
+          )}
         </div>
       ) : (
         <>
@@ -333,8 +378,8 @@ export default function LogsPage() {
                     onClick={() => handleEditLog(log)}
                     className="clickable-row"
                   >
-                    <td className="mono td-timestamp">
-                      {new Date(log.created_at || log.timestamp).toLocaleString()}
+                    <td className="mono td-timestamp" title={new Date(log.created_at || log.timestamp).toLocaleString()}>
+                      {timeAgo(log.created_at || log.timestamp)}
                     </td>
                     <td className="mono">{log.hostname}</td>
                     <td className="mono">{log.ip_address}</td>
@@ -347,13 +392,21 @@ export default function LogsPage() {
                     <td>
                       <div className="tag-list">
                         {(log.tags || []).map((tag, i) => (
-                          <span key={i} className="tag">
+                          <span
+                            key={i}
+                            className="tag"
+                            style={tag.color ? {
+                              background: `${tag.color}18`,
+                              color: tag.color,
+                              borderColor: `${tag.color}33`,
+                            } : undefined}
+                          >
                             {tag.name || tag}
                           </span>
                         ))}
                       </div>
                     </td>
-                    <td>{log.operator?.username || log.operator || '-'}</td>
+                    <td>{log.operator?.username || log.analyst || log.operator || '-'}</td>
                   </tr>
                 ))}
               </tbody>

@@ -10,6 +10,12 @@ function CreateOperationModal({ onClose, onSave }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
+  useEffect(() => {
+    const handleKey = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [onClose])
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSaving(true)
@@ -45,7 +51,7 @@ function CreateOperationModal({ onClose, onSave }) {
             <input
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="e.g., Operation Thunderstrike"
+              placeholder="e.g., CRIMSON-HAWK"
               required
               autoFocus
             />
@@ -88,6 +94,7 @@ export default function OperationsPage() {
   const [error, setError] = useState('')
   const [showCreate, setShowCreate] = useState(false)
   const [activeOpId, setActiveOpId] = useState(null)
+  const [confirmOp, setConfirmOp] = useState(null)
 
   const fetchOperations = useCallback(async () => {
     setLoading(true)
@@ -112,6 +119,7 @@ export default function OperationsPage() {
   }, [fetchOperations])
 
   const handleSetActive = async (opId) => {
+    setConfirmOp(null)
     try {
       await client.post(`/operations/operations/${opId}/set_active/`)
       setActiveOpId(opId)
@@ -146,6 +154,7 @@ export default function OperationsPage() {
         </div>
       ) : operations.length === 0 ? (
         <div className="empty-state">
+          <div style={{ fontSize: '36px', marginBottom: '12px', opacity: 0.3 }}>&#9881;</div>
           <p>No operations found.</p>
           {user?.is_admin && (
             <button
@@ -177,6 +186,11 @@ export default function OperationsPage() {
                   Created:{' '}
                   {new Date(op.created_at || op.created).toLocaleDateString()}
                 </span>
+                {op.user_count !== undefined && (
+                  <span>
+                    {op.user_count} user{op.user_count !== 1 ? 's' : ''}
+                  </span>
+                )}
                 {op.users && (
                   <span>
                     {op.users.length} user{op.users.length !== 1 ? 's' : ''}
@@ -196,7 +210,7 @@ export default function OperationsPage() {
                 {op.id !== activeOpId && (
                   <button
                     className="btn btn-sm btn-primary"
-                    onClick={() => handleSetActive(op.id)}
+                    onClick={() => setConfirmOp(op)}
                   >
                     Set Active
                   </button>
@@ -215,6 +229,29 @@ export default function OperationsPage() {
             fetchOperations()
           }}
         />
+      )}
+
+      {confirmOp && (
+        <div className="confirm-overlay" onClick={() => setConfirmOp(null)}>
+          <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
+            <h3>Switch Active Operation</h3>
+            <p>
+              Set <strong>{confirmOp.name}</strong> as your active operation?
+              Log entries will be scoped to this operation.
+            </p>
+            <div className="confirm-actions">
+              <button className="btn btn-ghost" onClick={() => setConfirmOp(null)}>
+                Cancel
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => handleSetActive(confirmOp.id)}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
