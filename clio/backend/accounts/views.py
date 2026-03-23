@@ -2,6 +2,7 @@ import os
 import secrets
 import time
 
+from django.conf import settings as django_settings
 from django.middleware.csrf import get_token
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
@@ -68,20 +69,21 @@ def login_view(request):
         "requiresPasswordChange": auth_result["requiresPasswordChange"],
     })
 
+    secure_cookie = not django_settings.DEBUG
     response.set_cookie(
         "auth_token",
         token,
         httponly=True,
-        secure=True,
-        samesite="Strict",
+        secure=secure_cookie,
+        samesite="Lax" if not secure_cookie else "Strict",
         max_age=8 * 3600,
     )
     response.set_cookie(
         "token",
         token,
         httponly=True,
-        secure=True,
-        samesite="Strict",
+        secure=secure_cookie,
+        samesite="Lax" if not secure_cookie else "Strict",
         max_age=8 * 3600,
     )
 
@@ -172,12 +174,13 @@ def verify_view(request):
 def csrf_token_view(request):
     csrf_token = secrets.token_hex(32)
     response = Response({"csrfToken": csrf_token})
+    secure_cookie = not django_settings.DEBUG
     response.set_cookie(
         "_csrf",
         csrf_token,
         httponly=True,
-        secure=True,
-        samesite="Strict",
+        secure=secure_cookie,
+        samesite="Lax" if not secure_cookie else "Strict",
         max_age=15 * 60,  # 15 minutes
     )
     return response
