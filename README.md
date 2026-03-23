@@ -108,7 +108,7 @@ Log in with any username using the password from `backend/.env`:
 
 ```bash
 # Login (use the ADMIN_PASSWORD from backend/.env)
-curl -X POST http://localhost:3000/api/auth/login/ \
+curl -X POST http://localhost:3000/api/accounts/login/ \
   -H "Content-Type: application/json" \
   -d '{"username": "admin", "password": "YOUR_ADMIN_PASSWORD"}'
 
