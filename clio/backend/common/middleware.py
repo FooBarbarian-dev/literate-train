@@ -41,7 +41,7 @@ class CustomCsrfMiddleware:
 
     # Paths that bypass CSRF entirely (JWT-protected API endpoints that
     # are called before any CSRF cookie is established).
-    CSRF_EXEMPT_PATHS = ("/api/accounts/login/", "/api/accounts/csrf/")
+    CSRF_EXEMPT_PATHS = ("/api/accounts/login/", "/api/accounts/logout/", "/api/accounts/csrf/")
 
     def __init__(self, get_response):
         self.get_response = get_response

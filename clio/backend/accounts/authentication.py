@@ -1,10 +1,13 @@
 from dataclasses import dataclass
+import logging
 from typing import Optional
 
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 
 from accounts.jwt_utils import verify_token, should_refresh_token, refresh_token
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -34,6 +37,10 @@ class JWTCookieAuthentication(BaseAuthentication):
     """
     Extracts JWT from auth_token cookie or Authorization header.
     Performs full 7-step verification per spec Section 3.1.
+
+    Returns None (instead of raising) when the token is invalid so that
+    DRF can fall through to the next authenticator. This prevents stale
+    cookies from permanently blocking authentication.
     """
 
     def authenticate(self, request):
@@ -41,7 +48,15 @@ class JWTCookieAuthentication(BaseAuthentication):
         if not token:
             return None
 
-        user_data = verify_token(token)
+        try:
+            user_data = verify_token(token)
+        except AuthenticationFailed as e:
+            # Log the failure but don't raise — return None so DRF tries
+            # the next authenticator.  The stale cookie will be cleared by
+            # the verify view or overwritten on next successful login.
+            logger.debug("JWT authentication failed: %s", e.detail)
+            return None
+
         user = JWTUser(**user_data)
 
         # Store decoded payload for refresh check
