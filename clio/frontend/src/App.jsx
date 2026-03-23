@@ -20,6 +20,11 @@ function NavBar() {
     { path: '/settings', label: 'Settings' },
   ]
 
+  const adminItems = [
+    { href: '/admin/', label: 'Admin' },
+    { href: '/api/schema/swagger-ui/', label: 'API Docs' },
+  ]
+
   return (
     <nav className="navbar">
       <div className="navbar-brand">
@@ -38,6 +43,22 @@ function NavBar() {
             {item.label}
           </Link>
         ))}
+        {user.is_admin && (
+          <>
+            <span className="navbar-divider" />
+            {adminItems.map((item) => (
+              <a
+                key={item.href}
+                href={item.href}
+                className="navbar-link navbar-link-admin"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {item.label} &#8599;
+              </a>
+            ))}
+          </>
+        )}
       </div>
       <div className="navbar-user">
         <span className="navbar-username">{user.username || user.email || 'User'}</span>

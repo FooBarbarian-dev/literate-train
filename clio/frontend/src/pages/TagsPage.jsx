@@ -12,7 +12,7 @@ function CreateTagModal({ onClose, onSave }) {
     setSaving(true)
     setError('')
     try {
-      await client.post('/logs/tags/', form)
+      await client.post('/tags/tags/', form)
       onSave()
     } catch (err) {
       setError(
@@ -107,7 +107,7 @@ export default function TagsPage() {
     setLoading(true)
     setError('')
     try {
-      const response = await client.get('/logs/tags/')
+      const response = await client.get('/tags/tags/')
       const data = response.data
       setTags(Array.isArray(data) ? data : data.results || [])
     } catch {

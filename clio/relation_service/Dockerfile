@@ -13,6 +13,8 @@ COPY . .
 
 RUN mkdir -p /app/data /app/logs
 
+RUN chmod +x /app/entrypoint.sh
+
 EXPOSE 3002
 
-CMD ["gunicorn", "relation_service.asgi:application", "-w", "2", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:3002"]
+CMD ["/app/entrypoint.sh"]

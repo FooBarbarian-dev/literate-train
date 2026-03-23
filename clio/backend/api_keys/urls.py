@@ -4,6 +4,6 @@ from api_keys.views import ApiKeyViewSet
 app_name = "api_keys"
 
 router = DefaultRouter()
-router.register(r"api-keys", ApiKeyViewSet, basename="api-key")
+router.register(r"", ApiKeyViewSet, basename="api-key")
 
 urlpatterns = router.urls

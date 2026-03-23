@@ -1,59 +1,52 @@
 """Entry point for the Clio environment generator.
 
 Usage:
-    python -m generate_env [--letsencrypt]
+    python -m generate_env
 
-Generates self-signed TLS certificates and .env files with random secrets
-for all Clio platform services.
+Generates .env files with random secrets for all Clio platform services.
+
+NOTE (PoC): TLS certificate generation has been removed for simplicity.
+In production, generate self-signed or Let's Encrypt certificates and
+re-enable SSL on Redis, PostgreSQL, and nginx. See certs.py for the
+original certificate generation logic.
 """
 
-import argparse
-import sys
 from pathlib import Path
 
-from generate_env.certs import generate_certs
 from generate_env.env_writer import write_env_files
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Generate certificates and .env files for the Clio platform.",
-    )
-    parser.add_argument(
-        "--letsencrypt",
-        action="store_true",
-        default=False,
-        help="Configure for Let's Encrypt certificate paths instead of self-signed certs.",
-    )
-    args = parser.parse_args()
-
     # Resolve the project root (one level up from generate_env/)
     base_dir = Path(__file__).resolve().parent.parent
 
     print("Clio Environment Generator")
     print("=" * 40)
 
-    # --- Certificates ---
-    print("\n[1/2] Generating TLS certificates...")
-    generate_certs(base_dir)
+    print("\nGenerating .env files...")
+    write_env_files(base_dir)
 
-    # --- .env files ---
-    print("\n[2/2] Generating .env files...")
-    letsencrypt_cert = ""
-    letsencrypt_key = ""
-    if args.letsencrypt:
-        letsencrypt_cert = "/etc/letsencrypt/live/localhost/fullchain.pem"
-        letsencrypt_key = "/etc/letsencrypt/live/localhost/privkey.pem"
-
-    write_env_files(
-        base_dir,
-        letsencrypt_cert_path=letsencrypt_cert,
-        letsencrypt_key_path=letsencrypt_key,
-    )
+    # Read back the generated passwords so the user can see them
+    backend_env_path = base_dir / "backend" / ".env"
+    admin_pw = ""
+    user_pw = ""
+    for line in backend_env_path.read_text().splitlines():
+        if line.startswith("ADMIN_PASSWORD="):
+            admin_pw = line.split("=", 1)[1]
+        elif line.startswith("USER_PASSWORD="):
+            user_pw = line.split("=", 1)[1]
 
     print("\n" + "=" * 40)
-    print("Setup complete! You can now run:")
-    print("  docker compose up -d")
+    print("Setup complete!\n")
+    print("Credentials (also saved in backend/.env):")
+    print(f"  Admin password: {admin_pw}")
+    print(f"  User  password: {user_pw}")
+    print("\nNext steps:")
+    print("  docker compose up --build -d")
+    print("  # (migrations and seeding run automatically)")
+    print("")
+    print("Optional — populate demo data:")
+    print("  docker compose exec backend python manage.py seed_demo_data")
 
 
 if __name__ == "__main__":

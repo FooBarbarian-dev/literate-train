@@ -2,6 +2,7 @@ import os
 import secrets
 import time
 
+from django.conf import settings as django_settings
 from django.middleware.csrf import get_token
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
@@ -68,20 +69,21 @@ def login_view(request):
         "requiresPasswordChange": auth_result["requiresPasswordChange"],
     })
 
+    secure_cookie = not django_settings.DEBUG
     response.set_cookie(
         "auth_token",
         token,
         httponly=True,
-        secure=True,
-        samesite="Strict",
+        secure=secure_cookie,
+        samesite="Lax" if not secure_cookie else "Strict",
         max_age=8 * 3600,
     )
     response.set_cookie(
         "token",
         token,
         httponly=True,
-        secure=True,
-        samesite="Strict",
+        secure=secure_cookie,
+        samesite="Lax" if not secure_cookie else "Strict",
         max_age=8 * 3600,
     )
 
@@ -94,11 +96,14 @@ def login_view(request):
     tags=["auth"],
 )
 @api_view(["POST"])
-@permission_classes([IsJWTAuthenticated])
+@permission_classes([AllowAny])
 def logout_view(request):
+    # Revoke the token in Redis if the user is authenticated
     user = request.user
-    revoke_token(user.jti, user.username)
+    if user and hasattr(user, "jti") and hasattr(user, "username"):
+        revoke_token(user.jti, user.username)
 
+    # Always clear cookies, even if the token was already invalid
     response = Response({"message": "Logged out successfully"})
     response.delete_cookie("auth_token")
     response.delete_cookie("token")
@@ -149,9 +154,19 @@ def change_password_view(request):
     tags=["auth"],
 )
 @api_view(["GET"])
-@permission_classes([IsJWTAuthenticated])
+@permission_classes([AllowAny])
 def verify_view(request):
     user = request.user
+    if not user or not getattr(user, "is_authenticated", False) or not hasattr(user, "role"):
+        # Clear stale auth cookies so the browser stops sending them
+        response = Response(
+            {"authenticated": False},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+        response.delete_cookie("auth_token")
+        response.delete_cookie("token")
+        return response
+
     return Response({
         "authenticated": True,
         "user": {
@@ -172,12 +187,13 @@ def verify_view(request):
 def csrf_token_view(request):
     csrf_token = secrets.token_hex(32)
     response = Response({"csrfToken": csrf_token})
+    secure_cookie = not django_settings.DEBUG
     response.set_cookie(
         "_csrf",
         csrf_token,
         httponly=True,
-        secure=True,
-        samesite="Strict",
+        secure=secure_cookie,
+        samesite="Lax" if not secure_cookie else "Strict",
         max_age=15 * 60,  # 15 minutes
     )
     return response

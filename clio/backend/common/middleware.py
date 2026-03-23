@@ -3,6 +3,7 @@ import re
 import secrets
 
 from django.http import JsonResponse
+from django.middleware.csrf import CsrfViewMiddleware as DjangoCsrfMiddleware
 
 
 class SecurityHeadersMiddleware:
@@ -14,7 +15,11 @@ class SecurityHeadersMiddleware:
     def __call__(self, request):
         response = self.get_response(request)
         response["X-Content-Type-Options"] = "nosniff"
-        response["X-Frame-Options"] = "DENY"
+        # Django admin uses SAMEORIGIN for its own iframe widgets
+        if request.path.startswith("/admin/"):
+            response["X-Frame-Options"] = "SAMEORIGIN"
+        else:
+            response["X-Frame-Options"] = "DENY"
         response["X-XSS-Protection"] = "1; mode=block"
         response["Strict-Transport-Security"] = (
             "max-age=31536000; includeSubDomains"
@@ -26,19 +31,37 @@ class SecurityHeadersMiddleware:
 
 class CustomCsrfMiddleware:
     """Custom CSRF validation that skips checks for JWT-authenticated API
-    requests and validates a CSRF token cookie/header pair for all others."""
+    requests and validates a CSRF token cookie/header pair for all others.
+
+    Django admin paths are delegated to Django's built-in CsrfViewMiddleware
+    so that Django's standard csrftoken cookie / csrfmiddlewaretoken form
+    field flow works correctly."""
 
     SAFE_METHODS = ("GET", "HEAD", "OPTIONS", "TRACE")
 
+    # Paths that bypass CSRF entirely (JWT-protected API endpoints that
+    # are called before any CSRF cookie is established).
+    CSRF_EXEMPT_PATHS = ("/api/accounts/login/", "/api/accounts/logout/", "/api/accounts/csrf/")
+
     def __init__(self, get_response):
         self.get_response = get_response
+        self._django_csrf = DjangoCsrfMiddleware(get_response)
 
     def __call__(self, request):
+        # For admin paths, use Django's built-in CSRF middleware so that
+        # the standard csrftoken cookie / form field flow works.
+        if request.path.startswith("/admin/"):
+            return self._django_csrf(request)
+
         if request.method in self.SAFE_METHODS:
             return self.get_response(request)
 
         # Skip CSRF for requests authenticated via JWT (auth_token cookie)
         if request.COOKIES.get("auth_token"):
+            return self.get_response(request)
+
+        # Skip CSRF for login and CSRF-token endpoints (pre-authentication)
+        if request.path in self.CSRF_EXEMPT_PATHS:
             return self.get_response(request)
 
         # For non-JWT requests, validate _csrf cookie against X-CSRF-Token header

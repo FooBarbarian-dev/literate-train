@@ -98,8 +98,8 @@ export default function OperationsPage() {
       const ops = Array.isArray(data) ? data : data.results || []
       setOperations(ops)
 
-      const active = ops.find((op) => op.is_active)
-      if (active) setActiveOpId(active.id)
+      const active = ops.find((op) => op.is_user_active)
+      setActiveOpId(active ? active.id : null)
     } catch {
       setError('Failed to fetch operations')
     } finally {
@@ -113,7 +113,7 @@ export default function OperationsPage() {
 
   const handleSetActive = async (opId) => {
     try {
-      await client.post(`/operations/operations/${opId}/set_active/`)
+      await client.post('/operations/operations/set-active/', { operation_id: opId })
       setActiveOpId(opId)
       fetchOperations()
     } catch (err) {

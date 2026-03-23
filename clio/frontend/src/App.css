@@ -166,6 +166,22 @@ a:hover {
   background: rgba(59, 130, 246, 0.1);
 }
 
+.navbar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-primary);
+  margin: 0 4px;
+}
+
+.navbar-link-admin {
+  color: var(--accent-purple, #a855f7);
+}
+
+.navbar-link-admin:hover {
+  color: var(--accent-purple, #a855f7);
+  background: rgba(168, 85, 247, 0.1);
+}
+
 .navbar-user {
   margin-left: auto;
   display: flex;
@@ -504,6 +520,34 @@ a:hover {
 }
 
 /* ---- Filters ---- */
+/* Operation context banner for logs page */
+.operation-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--accent-blue);
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.operation-banner-label {
+  color: var(--text-secondary);
+}
+
+.operation-banner-warn {
+  border-color: var(--accent-amber);
+  color: var(--accent-amber);
+}
+
+.operation-banner-warn a {
+  color: var(--accent-blue);
+  text-decoration: underline;
+}
+
 .filters-bar {
   display: flex;
   gap: 10px;
