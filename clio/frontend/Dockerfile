@@ -1,14 +1,12 @@
-FROM node:22-alpine AS build
+FROM node:22-alpine
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm install
 COPY . .
-RUN npm run build
-
-FROM node:22-alpine
-WORKDIR /app
-RUN npm install -g serve
-COPY --from=build /app/dist ./dist
 EXPOSE 3000
-HEALTHCHECK --interval=30s --timeout=10s --retries=3 CMD wget -q --spider http://localhost:3000/health || exit 1
-CMD ["serve", "-s", "dist", "-l", "3000"]
+# NOTE (PoC): Running Vite dev server instead of a production build.
+# The dev server's built-in proxy (vite.config.js) routes /api -> backend
+# and /relation-service -> relation-service, so no separate reverse proxy
+# (nginx) is needed. For production, build the app and serve behind nginx
+# with proper TLS.
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3000"]
