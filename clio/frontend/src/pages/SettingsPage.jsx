@@ -109,7 +109,7 @@ function ApiKeySection() {
     setLoading(true)
     setError('')
     try {
-      const response = await client.post('/accounts/api-keys/')
+      const response = await client.post('/api-keys/')
       setApiKey(response.data.key || response.data.api_key || response.data.token)
     } catch (err) {
       setError(
@@ -125,7 +125,7 @@ function ApiKeySection() {
     setLoading(true)
     setError('')
     try {
-      await client.delete('/accounts/api-keys/')
+      await client.delete('/api-keys/')
       setApiKey(null)
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to revoke keys.')
@@ -224,8 +224,7 @@ function ExportSection() {
     setLoading(true)
     setError('')
     try {
-      const response = await client.get(`/logs/export/`, {
-        params: { format },
+      const response = await client.get(`/export/${format}/`, {
         responseType: 'blob',
       })
       const url = window.URL.createObjectURL(new Blob([response.data]))
@@ -251,7 +250,7 @@ function ExportSection() {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      await client.post('/logs/import/', formData, {
+      await client.post('/ingest/csv/', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
       alert('Import completed successfully.')

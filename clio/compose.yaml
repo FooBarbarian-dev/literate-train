@@ -36,8 +36,8 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:3001/api/health/"]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 15s
+      retries: 5
+      start_period: 60s
     env_file:
       - ./backend/.env
 
