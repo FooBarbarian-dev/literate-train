@@ -56,28 +56,6 @@ services:
     env_file:
       - ./backend/.env
 
-  relation-service:
-    build:
-      context: ./relation_service
-      dockerfile: Dockerfile
-    expose:
-      - "3002"
-    volumes:
-      - ./relation_service/data:/app/data
-      - ./relation_service/logs:/app/logs
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3002/api/health/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
-    env_file:
-      - ./relation_service/.env
-
   redis:
     image: redis:7-alpine
     expose:

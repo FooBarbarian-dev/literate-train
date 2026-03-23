@@ -67,6 +67,7 @@ INSTALLED_APPS = [
     "sessions_mgmt",
     "templates_mgmt",
     "audit",
+    "relations",
 ]
 
 MIDDLEWARE = [

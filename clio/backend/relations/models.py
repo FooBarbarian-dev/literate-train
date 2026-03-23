@@ -178,7 +178,7 @@ class FileStatusHistory(models.Model):
 
 
 class LogRelationship(models.Model):
-    """Tracks relationships between log entries (cross-service reference by ID)."""
+    """Tracks relationships between log entries."""
 
     TYPE_CHOICES = [
         ("parent_child", "Parent-Child"),

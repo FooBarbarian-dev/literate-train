@@ -50,4 +50,5 @@ urlpatterns = [
     path("api/sessions/", include("sessions_mgmt.urls")),
     path("api/templates/", include("templates_mgmt.urls")),
     path("api/audit/", include("audit.urls")),
+    path("api/relations/", include("relations.urls")),
 ]
