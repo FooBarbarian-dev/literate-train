@@ -22,6 +22,7 @@ services:
       - DEBUG=True
       - DJANGO_LOG_LEVEL=DEBUG
       - CORS_ALLOW_ALL_ORIGINS=True
+      - POSTGRES_SSL=false  # dev db has no SSL
     volumes:
       - ./backend:/app
       - /app/venv # Prevent overwriting virtual environment

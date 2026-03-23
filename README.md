@@ -33,62 +33,26 @@ git clone <repository-url>
 cd literate-train/clio
 ```
 
-### 2. Environment Setup
+### 2. Generate Environment Files and SSL Certificates
 
-Copy the example environment file and configure your settings:
-
-```bash
-cp .env.example .env
-```
-
-Edit the `.env` file with your specific configuration:
+Run the bundled generator from inside the `clio/` directory. It creates all `.env`
+files with cryptographically-random secrets **and** generates self-signed TLS
+certificates for every service in one step:
 
 ```bash
-# Database Configuration
-POSTGRES_DB=redteamlogger
-POSTGRES_USER=clio
-POSTGRES_PASSWORD=your_secure_password_here
-
-# Redis Configuration  
-REDIS_PASSWORD=your_redis_password_here
-
-# Django Configuration
-SECRET_KEY=your_django_secret_key_here
-DEBUG=False
-ALLOWED_HOSTS=localhost,127.0.0.1,your-domain.com
-
-# Environment
-NODE_ENV=production
+cd clio
+pip install cryptography   # only needed the first time
+python -m generate_env
 ```
 
-### 3. Generate SSL Certificates
+The generator writes:
+- `clio/.env` – root compose environment (passwords, secrets)
+- `clio/backend/.env` – backend service environment
+- `clio/relation_service/.env` – relation-service environment
+- `clio/certs/` – CA, server, Redis, and PostgreSQL TLS certificates
 
-The application uses TLS encryption. Generate self-signed certificates for development:
-
-```bash
-# Create certificate directories
-mkdir -p certs/{postgres,redis,nginx}
-
-# Generate CA certificate
-openssl genrsa -out certs/ca.key 4096
-openssl req -new -x509 -key certs/ca.key -sha256 -subj "/C=US/ST=CA/O=Clio/CN=Clio CA" -days 3650 -out certs/ca.crt
-
-# Generate server certificates for each service
-# PostgreSQL
-openssl genrsa -out certs/postgres/server.key 4096
-openssl req -new -key certs/postgres/server.key -out certs/postgres/server.csr -subj "/C=US/ST=CA/O=Clio/CN=db"
-openssl x509 -req -in certs/postgres/server.csr -CA certs/ca.crt -CAkey certs/ca.key -CAcreateserial -out certs/postgres/server.crt -days 365 -sha256
-
-# Redis
-openssl genrsa -out certs/redis/redis.key 4096
-openssl req -new -key certs/redis/redis.key -out certs/redis/redis.csr -subj "/C=US/ST=CA/O=Clio/CN=redis"
-openssl x509 -req -in certs/redis/redis.csr -CA certs/ca.crt -CAkey certs/ca.key -CAcreateserial -out certs/redis/redis.crt -days 365 -sha256
-cp certs/ca.crt certs/redis/ca.crt
-
-# Set proper permissions
-chmod 600 certs/postgres/server.key certs/redis/redis.key
-chmod 644 certs/postgres/server.crt certs/redis/redis.crt certs/redis/ca.crt
-```
+> **Let's Encrypt (production):** Pass `--letsencrypt` to configure certificate
+> paths for a Let's Encrypt setup instead of self-signed certs.
 
 ### 4. Build and Start Services
 
@@ -126,51 +90,33 @@ docker compose exec backend python manage.py seed_initial_passwords
 
 For development with hot-reloading and debugging:
 
-### 1. Override for Development
+### 1. Start with the Development Override
 
-Create a `compose.override.yaml` file:
+A ready-made `compose.dev.yaml` override is included. It enables hot-reloading,
+exposes database and Redis ports, and disables TLS on the local database so you
+don't need client certificates during development:
 
-```yaml
-services:
-  frontend:
-    environment:
-      - NODE_ENV=development
-    volumes:
-      - ./frontend:/app
-    command: npm run dev
-
-  backend:
-    environment:
-      - DEBUG=True
-    volumes:
-      - ./backend:/app
-    command: python manage.py runserver 0.0.0.0:3001
-
-  db:
-    ports:
-      - "5432:5432"  # Expose for local development tools
-
-  redis:
-    ports:
-      - "6379:6379"  # Expose for local development tools
+```bash
+docker compose -f compose.yaml -f compose.dev.yaml up --build
 ```
 
-### 2. Install Local Dependencies
+The dev override maps:
+- nginx → `http://localhost:8080` / `https://localhost:8443`
+- backend → `http://localhost:8001` (direct access)
+- relation-service → `http://localhost:8002` (direct access)
+- PostgreSQL → `localhost:5432`
+- Redis → `localhost:6379`
+
+### 2. Install Local Dependencies (optional, for IDE tooling)
 
 ```bash
 # Backend dependencies
 cd backend
 pip install -r requirements.txt
 
-# Frontend dependencies  
+# Frontend dependencies
 cd ../frontend
 npm install
-```
-
-### 3. Start Development Environment
-
-```bash
-docker compose -f compose.yaml -f compose.override.yaml up --build
 ```
 
 ## API Usage
