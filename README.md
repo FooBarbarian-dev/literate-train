@@ -2,6 +2,12 @@
 
 A comprehensive platform for logging, tracking, and analyzing red team activities with advanced relationship mapping and audit capabilities.
 
+> **PoC Notice**: This setup prioritises convenience over security. SSL/TLS, Redis
+> encryption, HSTS, and secure cookie flags have all been intentionally disabled.
+> **Do not expose this to untrusted networks or use it in production as-is.**
+> See the _Production Hardening_ section at the bottom for what needs to be
+> re-enabled before going to production.
+
 ## Features
 
 - **Activity Logging**: Track and document red team activities with detailed metadata
@@ -17,7 +23,6 @@ A comprehensive platform for logging, tracking, and analyzing red team activitie
 - **Backend**: Django REST API with PostgreSQL database
 - **Relation Service**: Specialized microservice for relationship analysis
 - **Infrastructure**: Docker Compose orchestration with nginx reverse proxy
-- **Security**: TLS encryption, secure authentication, and network isolation
 
 ## Quick Start
 
@@ -33,64 +38,23 @@ git clone <repository-url>
 cd literate-train/clio
 ```
 
-### 2. Environment Setup
+### 2. Generate Environment Files
 
-Copy the example environment file and configure your settings:
+Run the generator to create `.env` files with random secrets for all services:
+
+```bash
+python -m generate_env
+```
+
+This creates `clio/.env`, `clio/backend/.env`, and `clio/relation_service/.env`.
+Alternatively, copy the example and edit manually:
 
 ```bash
 cp .env.example .env
+# Edit .env and fill in POSTGRES_PASSWORD, REDIS_PASSWORD, JWT_SECRET, etc.
 ```
 
-Edit the `.env` file with your specific configuration:
-
-```bash
-# Database Configuration
-POSTGRES_DB=redteamlogger
-POSTGRES_USER=clio
-POSTGRES_PASSWORD=your_secure_password_here
-
-# Redis Configuration  
-REDIS_PASSWORD=your_redis_password_here
-
-# Django Configuration
-SECRET_KEY=your_django_secret_key_here
-DEBUG=False
-ALLOWED_HOSTS=localhost,127.0.0.1,your-domain.com
-
-# Environment
-NODE_ENV=production
-```
-
-### 3. Generate SSL Certificates
-
-The application uses TLS encryption. Generate self-signed certificates for development:
-
-```bash
-# Create certificate directories
-mkdir -p certs/{postgres,redis,nginx}
-
-# Generate CA certificate
-openssl genrsa -out certs/ca.key 4096
-openssl req -new -x509 -key certs/ca.key -sha256 -subj "/C=US/ST=CA/O=Clio/CN=Clio CA" -days 3650 -out certs/ca.crt
-
-# Generate server certificates for each service
-# PostgreSQL
-openssl genrsa -out certs/postgres/server.key 4096
-openssl req -new -key certs/postgres/server.key -out certs/postgres/server.csr -subj "/C=US/ST=CA/O=Clio/CN=db"
-openssl x509 -req -in certs/postgres/server.csr -CA certs/ca.crt -CAkey certs/ca.key -CAcreateserial -out certs/postgres/server.crt -days 365 -sha256
-
-# Redis
-openssl genrsa -out certs/redis/redis.key 4096
-openssl req -new -key certs/redis/redis.key -out certs/redis/redis.csr -subj "/C=US/ST=CA/O=Clio/CN=redis"
-openssl x509 -req -in certs/redis/redis.csr -CA certs/ca.crt -CAkey certs/ca.key -CAcreateserial -out certs/redis/redis.crt -days 365 -sha256
-cp certs/ca.crt certs/redis/ca.crt
-
-# Set proper permissions
-chmod 600 certs/postgres/server.key certs/redis/redis.key
-chmod 644 certs/postgres/server.crt certs/redis/redis.crt certs/redis/ca.crt
-```
-
-### 4. Build and Start Services
+### 3. Build and Start Services
 
 ```bash
 # Build and start all services
@@ -103,7 +67,7 @@ docker compose ps
 docker compose logs -f
 ```
 
-### 5. Database Setup
+### 4. Database Setup
 
 ```bash
 # Run database migrations
@@ -116,61 +80,33 @@ docker compose exec backend python manage.py createsuperuser
 docker compose exec backend python manage.py seed_initial_passwords
 ```
 
-### 6. Access the Application
+### 5. Access the Application
 
-- **Web Interface**: https://localhost (or your configured domain)
-- **API Documentation**: https://localhost/api/schema/swagger-ui/
-- **Admin Panel**: https://localhost/api/admin/
+- **Web Interface**: http://localhost
+- **API Documentation**: http://localhost/api/schema/swagger-ui/
+- **Admin Panel**: http://localhost/api/admin/
 
 ## Development Setup
 
 For development with hot-reloading and debugging:
 
-### 1. Override for Development
-
-Create a `compose.override.yaml` file:
-
-```yaml
-services:
-  frontend:
-    environment:
-      - NODE_ENV=development
-    volumes:
-      - ./frontend:/app
-    command: npm run dev
-
-  backend:
-    environment:
-      - DEBUG=True
-    volumes:
-      - ./backend:/app
-    command: python manage.py runserver 0.0.0.0:3001
-
-  db:
-    ports:
-      - "5432:5432"  # Expose for local development tools
-
-  redis:
-    ports:
-      - "6379:6379"  # Expose for local development tools
+```bash
+docker compose -f compose.yaml -f compose.dev.yaml up --build
 ```
 
-### 2. Install Local Dependencies
+The dev override maps ports `8080` (HTTP) for nginx, `8001` for the backend, `8002`
+for the relation service, `5432` for PostgreSQL, and `6379` for Redis.
+
+### Install Local Dependencies
 
 ```bash
 # Backend dependencies
 cd backend
 pip install -r requirements.txt
 
-# Frontend dependencies  
+# Frontend dependencies
 cd ../frontend
 npm install
-```
-
-### 3. Start Development Environment
-
-```bash
-docker compose -f compose.yaml -f compose.override.yaml up --build
 ```
 
 ## API Usage
@@ -179,12 +115,12 @@ docker compose -f compose.yaml -f compose.override.yaml up --build
 
 ```bash
 # Login to get JWT token
-curl -X POST https://localhost/api/auth/login/ \
+curl -X POST http://localhost/api/auth/login/ \
   -H "Content-Type: application/json" \
   -d '{"username": "your_username", "password": "your_password"}'
 
 # Use token in subsequent requests
-curl -X GET https://localhost/api/activities/ \
+curl -X GET http://localhost/api/activities/ \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
@@ -192,13 +128,13 @@ curl -X GET https://localhost/api/activities/ \
 
 ```bash
 # Create API key
-curl -X POST https://localhost/api/api-keys/ \
+curl -X POST http://localhost/api/api-keys/ \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"name": "My API Key", "permissions": ["read", "write"]}'
 
 # Use API key
-curl -X GET https://localhost/api/activities/ \
+curl -X GET http://localhost/api/activities/ \
   -H "X-API-Key: YOUR_API_KEY"
 ```
 
@@ -255,10 +191,9 @@ docker compose down -v
 
 ### Common Issues
 
-1. **Port conflicts**: Ensure ports 80, 443 are available
-2. **Permission issues**: Check file permissions on certificate files
-3. **Database connection**: Verify PostgreSQL is healthy with `docker compose ps`
-4. **SSL errors**: Ensure certificates are properly generated and mounted
+1. **Port conflicts**: Ensure port 80 is available (8080 in dev mode)
+2. **Database connection**: Verify PostgreSQL is healthy with `docker compose ps`
+3. **Redis connection**: Verify Redis is healthy with `docker compose ps`
 
 ### Health Checks
 
@@ -270,7 +205,7 @@ docker compose ps
 docker compose exec backend python manage.py dbshell
 
 # Test Redis connection
-docker compose exec redis redis-cli --tls --cert /tls/redis.crt --key /tls/redis.key --cacert /tls/ca.crt ping
+docker compose exec redis redis-cli -a "$REDIS_PASSWORD" ping
 ```
 
 ### Logs and Debugging
@@ -286,17 +221,27 @@ docker compose logs db
 docker compose logs nginx-proxy
 ```
 
-## Production Deployment
+## Production Hardening
 
-For production deployment, consider:
+Before using this in any non-local environment, re-enable the security features
+that were stripped out for PoC convenience:
 
-1. Use proper SSL certificates from a CA (Let's Encrypt, etc.)
-2. Configure proper domain names and DNS
-3. Set up log aggregation and monitoring
-4. Configure automated backups
-5. Use secrets management for sensitive data
-6. Set up container orchestration (Kubernetes, Docker Swarm)
-7. Implement proper CI/CD pipelines
+1. **TLS on nginx** – restore the HTTPS server block and HTTP→HTTPS redirect in
+   `nginx/nginx.conf`, mount TLS certs into the container.
+2. **Redis TLS + encryption** – restore `ssl=True`, `ssl_cert_reqs`, and the
+   `EncryptedRedis` AES-256-GCM wrapper in `backend/common/redis_client.py`.
+   Add `REDIS_SSL=true` and `REDIS_ENCRYPTION_KEY` back to env files.
+3. **PostgreSQL SSL** – re-add `ssl=on` and cert paths to the `db` command in
+   `compose.yaml`, mount `./certs/postgres`.
+4. **Django security settings** – restore `SECURE_SSL_REDIRECT`, HSTS headers,
+   `SESSION_COOKIE_SECURE`, and `CSRF_COOKIE_SECURE` in
+   `backend/backend/settings/production.py`.
+5. **Certificate generation** – run `python -m generate_env` after restoring the
+   `generate_certs()` call in `generate_env/__main__.py`, or use Let's Encrypt.
+6. **Secrets management** – use a proper secrets manager; do not commit `.env` files.
+7. **Log aggregation and monitoring**
+8. **Automated backups**
+9. **Container orchestration** (Kubernetes, Docker Swarm) for production scale
 
 ## Contributing
 

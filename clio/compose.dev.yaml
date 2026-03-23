@@ -5,7 +5,7 @@ services:
   nginx-proxy:
     ports:
       - "8080:80" # Use different port to avoid conflicts
-      - "8443:443"
+      # NOTE (PoC): Port 8443 / TLS removed along with SSL support.
 
   frontend:
     environment:

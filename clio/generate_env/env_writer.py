@@ -1,4 +1,9 @@
-"""Generate .env files with random secrets for the Clio platform."""
+"""Generate .env files with random secrets for the Clio platform.
+
+NOTE (PoC): SSL/TLS-related variables (POSTGRES_SSL, REDIS_SSL,
+REDIS_ENCRYPTION_KEY, LETSENCRYPT_*) have been removed for simplicity.
+In production, re-add these and enable TLS on Redis, PostgreSQL, and nginx.
+"""
 
 import os
 import secrets
@@ -24,12 +29,7 @@ def _write_file(path: Path, content: str) -> None:
     os.chmod(path, 0o600)
 
 
-def write_env_files(
-    base_dir: Path,
-    *,
-    letsencrypt_cert_path: str = "",
-    letsencrypt_key_path: str = "",
-) -> None:
+def write_env_files(base_dir: Path) -> None:
     """Generate and write all .env files for the Clio platform.
 
     Files created:
@@ -38,7 +38,6 @@ def write_env_files(
         <base_dir>/relation_service/.env - relation-service env
     """
     # --- Generate secrets ---
-    redis_encryption_key = _random_hex(32)
     jwt_secret = _random_hex(32)
     admin_secret = _random_hex(32)
     field_encryption_key = _random_hex(32)
@@ -57,10 +56,7 @@ POSTGRES_PASSWORD={postgres_password}
 POSTGRES_DB=redteamlogger
 POSTGRES_HOST=db
 POSTGRES_PORT=5432
-POSTGRES_SSL=true
 REDIS_PASSWORD={redis_password}
-REDIS_SSL=true
-REDIS_ENCRYPTION_KEY={redis_encryption_key}
 JWT_SECRET={jwt_secret}
 ADMIN_PASSWORD={admin_password}
 USER_PASSWORD={user_password}
@@ -69,13 +65,11 @@ FIELD_ENCRYPTION_KEY={field_encryption_key}
 SERVER_INSTANCE_ID={server_instance_id}
 PORT=3001
 NODE_ENV=production
-FRONTEND_URL=https://localhost
+FRONTEND_URL=http://localhost
 HOSTNAME=localhost
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
-GOOGLE_CALLBACK_URL=https://localhost:3000/api/auth/google/callback
-LETSENCRYPT_CERT_PATH={letsencrypt_cert_path}
-LETSENCRYPT_KEY_PATH={letsencrypt_key_path}
+GOOGLE_CALLBACK_URL=http://localhost/api/auth/google/callback
 """
     _write_file(base_dir / ".env", root_env)
 
@@ -87,12 +81,9 @@ POSTGRES_PASSWORD={postgres_password}
 POSTGRES_DB=redteamlogger
 POSTGRES_HOST=db
 POSTGRES_PORT=5432
-POSTGRES_SSL=true
 REDIS_HOST=redis
 REDIS_PORT=6379
 REDIS_PASSWORD={redis_password}
-REDIS_SSL=true
-REDIS_ENCRYPTION_KEY={redis_encryption_key}
 JWT_SECRET={jwt_secret}
 ADMIN_PASSWORD={admin_password}
 USER_PASSWORD={user_password}
@@ -101,13 +92,11 @@ FIELD_ENCRYPTION_KEY={field_encryption_key}
 SERVER_INSTANCE_ID={server_instance_id}
 PORT=3001
 NODE_ENV=production
-FRONTEND_URL=https://localhost
+FRONTEND_URL=http://localhost
 HOSTNAME=localhost
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
-GOOGLE_CALLBACK_URL=https://localhost:3000/api/auth/google/callback
-LETSENCRYPT_CERT_PATH={letsencrypt_cert_path}
-LETSENCRYPT_KEY_PATH={letsencrypt_key_path}
+GOOGLE_CALLBACK_URL=http://localhost/api/auth/google/callback
 """
     _write_file(base_dir / "backend" / ".env", backend_env)
 
@@ -119,7 +108,6 @@ POSTGRES_PASSWORD={postgres_password}
 POSTGRES_DB=redteamlogger
 POSTGRES_HOST=db
 POSTGRES_PORT=5432
-POSTGRES_SSL=true
 PORT=3002
 NODE_ENV=production
 JWT_SECRET={jwt_secret}

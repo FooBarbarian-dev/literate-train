@@ -1,5 +1,14 @@
 """
 Production settings for the Clio platform.
+
+NOTE (PoC): SSL redirect, HSTS, and secure cookie flags have been removed for
+convenience. In production, re-enable:
+  SECURE_SSL_REDIRECT = True
+  SECURE_HSTS_SECONDS = 31536000
+  SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+  SECURE_HSTS_PRELOAD = True
+  SESSION_COOKIE_SECURE = True
+  CSRF_COOKIE_SECURE = True
 """
 
 from .base import *  # noqa: F401, F403
@@ -8,16 +17,6 @@ from .base import env
 DEBUG = False
 
 ALLOWED_HOSTS = env("DJANGO_ALLOWED_HOSTS")
-
-# Security settings
-SECURE_SSL_REDIRECT = env("SECURE_SSL_REDIRECT", default=True)
-SECURE_HSTS_SECONDS = 31536000
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-SECURE_HSTS_PRELOAD = True
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
-SECURE_BROWSER_XSS_FILTER = True
-SECURE_CONTENT_TYPE_NOSNIFF = True
 
 # CORS - restrict in production
 CORS_ALLOW_ALL_ORIGINS = False
