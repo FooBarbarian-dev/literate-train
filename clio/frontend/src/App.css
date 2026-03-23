@@ -512,6 +512,7 @@ a:hover {
   display: inline-block;
   padding: 2px 8px;
   font-size: 11px;
+  font-weight: 500;
   border-radius: 4px;
   background: rgba(59, 130, 246, 0.12);
   color: var(--accent-blue);
@@ -646,6 +647,86 @@ a:hover {
   margin-top: 20px;
   padding-top: 16px;
   border-top: 1px solid var(--border-color);
+}
+
+/* ---- Log Panel (slide-out drawer) ---- */
+.logs-page {
+  position: relative;
+}
+
+.logs-content {
+  position: relative;
+}
+
+.log-panel {
+  position: fixed;
+  top: 56px;
+  right: 0;
+  width: 460px;
+  height: calc(100vh - 56px);
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border-light);
+  box-shadow: -6px 0 28px rgba(0, 0, 0, 0.45);
+  overflow-y: auto;
+  z-index: 150;
+  display: flex;
+  flex-direction: column;
+}
+
+.log-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  flex-shrink: 0;
+  gap: 12px;
+}
+
+.log-panel-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.log-panel-title-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-muted);
+}
+
+.log-panel-title-host {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.log-panel-body {
+  padding: 20px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.log-panel-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.row-selected {
+  background: var(--bg-hover);
+  outline: 1px solid var(--accent-primary);
+  outline-offset: -1px;
 }
 
 /* ---- Cards ---- */

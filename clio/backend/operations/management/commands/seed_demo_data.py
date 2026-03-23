@@ -208,6 +208,9 @@ class Command(BaseCommand):
         # Delete logs whose analyst is a demo analyst
         Log.objects.filter(analyst__in=["operator1", "operator2"]).delete()
         Operation.objects.filter(name__in=op_names).delete()
+        # Delete auto-generated operation tags (created by DB trigger on operation insert)
+        op_tag_names = [f"op:{name.lower()}" for name in op_names]
+        Tag.objects.filter(name__in=op_tag_names).delete()
         self.stdout.write(self.style.WARNING("Cleared existing demo data"))
 
     def _seed_operations(self):
