@@ -26,9 +26,27 @@ def main() -> None:
     print("\nGenerating .env files...")
     write_env_files(base_dir)
 
+    # Read back the generated passwords so the user can see them
+    backend_env_path = base_dir / "backend" / ".env"
+    admin_pw = ""
+    user_pw = ""
+    for line in backend_env_path.read_text().splitlines():
+        if line.startswith("ADMIN_PASSWORD="):
+            admin_pw = line.split("=", 1)[1]
+        elif line.startswith("USER_PASSWORD="):
+            user_pw = line.split("=", 1)[1]
+
     print("\n" + "=" * 40)
-    print("Setup complete! You can now run:")
-    print("  docker compose up -d")
+    print("Setup complete!\n")
+    print("Credentials (also saved in backend/.env):")
+    print(f"  Admin password: {admin_pw}")
+    print(f"  User  password: {user_pw}")
+    print("\nNext steps:")
+    print("  docker compose up --build -d")
+    print("  # (migrations and seeding run automatically)")
+    print("")
+    print("Optional — populate demo data:")
+    print("  docker compose exec backend python manage.py seed_demo_data")
 
 
 if __name__ == "__main__":

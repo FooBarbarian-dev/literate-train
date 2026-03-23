@@ -4,9 +4,10 @@ A platform for logging, tracking, and analysing red team activities with relatio
 
 > **PoC Notice**: This setup prioritises convenience over security. SSL/TLS,
 > Redis encryption, HSTS, and secure cookie flags are all disabled. The Vite
-> dev server is used instead of a production build+nginx stack. **Do not
-> expose this to untrusted networks.** See _Production Hardening_ at the
-> bottom for what to re-enable before going live.
+> dev server is used instead of a production build+nginx stack. Passwords are
+> stored in plaintext `.env` files and the default admin/user credentials are
+> auto-generated. **Do not expose this to untrusted networks.** See
+> _Production Hardening_ at the bottom for what to re-enable before going live.
 
 ## Architecture
 
@@ -26,7 +27,7 @@ The Vite dev server proxies `/api` → `backend:3001` and `/relation-service` �
 ### Prerequisites
 
 - Docker and Docker Compose v2+
-- Python 3.9+ (only for `generate_env`; Docker otherwise)
+- Python 3.9+ (only for `generate_env`; Docker handles everything else)
 
 ### 1. Clone
 
@@ -42,15 +43,13 @@ python -m generate_env
 ```
 
 This writes `clio/.env`, `clio/backend/.env`, and `clio/relation_service/.env`
-with random passwords. That's all the setup needed — no certificates, no manual
-secret editing.
+with random passwords and secrets. That's all the setup needed — no
+certificates, no manual secret editing.
 
-> If you don't have Python handy, copy the example instead:
-> ```bash
-> cp .env.example .env
-> # then manually create backend/.env and relation_service/.env
-> # (see those files' comments for required keys)
-> ```
+> **Security shortcut**: The generated passwords are printed to the terminal
+> and stored in plaintext `.env` files. The admin and user passwords are in
+> `backend/.env` as `ADMIN_PASSWORD` and `USER_PASSWORD`. In production you
+> would use a secrets vault instead.
 
 ### 3. Start
 
@@ -58,34 +57,67 @@ secret editing.
 docker compose up --build -d
 ```
 
-### 4. Migrate and seed
+The backend and relation-service containers automatically:
+- Wait for the database to be ready
+- Run Django migrations
+- Collect static files (for Django admin CSS)
+- Seed initial admin/user passwords into Redis
+
+No manual `migrate` or `seed` step required.
+
+### 4. (Optional) Populate demo data
 
 ```bash
-docker compose exec backend python manage.py migrate
-docker compose exec backend python manage.py createsuperuser   # optional
-docker compose exec backend python manage.py seed_initial_passwords
+docker compose exec backend python manage.py seed_demo_data
 ```
 
-### 5. Open
+This creates three realistic red-team operations (NIGHTFALL, IRON GATE,
+SILENT STORM) with associated log entries and tags — useful for exploring
+the UI immediately.
+
+To reset and re-seed:
+
+```bash
+docker compose exec backend python manage.py seed_demo_data --clear
+```
+
+### 5. Login
 
 - **App**: http://localhost:3000
 - **API docs**: http://localhost:3000/api/schema/swagger-ui/
-- **Admin**: http://localhost:3000/api/admin/
+- **Admin panel**: http://localhost:3000/api/admin/
+
+Log in with any username using the password from `backend/.env`:
+- Use `ADMIN_PASSWORD` value with any username for **admin** access
+- Use `USER_PASSWORD` value with any username for **regular user** access
+
+> **Security shortcut**: There is no user registration. Any username works
+> with the preset passwords. The first login with a preset password will
+> prompt for a password change. This is intentionally simple for PoC use.
+
+## App Pages
+
+| Page | Path | Description |
+|---|---|---|
+| Logs | `/logs` | View and create red team activity log entries |
+| Operations | `/operations` | Create and manage operational groupings |
+| Tags | `/tags` | Manage tags for categorising log entries |
+| Settings | `/settings` | Change password, manage API keys, view sessions |
 
 ## API Usage
 
 ```bash
-# Login
+# Login (use the ADMIN_PASSWORD from backend/.env)
 curl -X POST http://localhost:3000/api/auth/login/ \
   -H "Content-Type: application/json" \
-  -d '{"username": "admin", "password": "your_password"}'
+  -d '{"username": "admin", "password": "YOUR_ADMIN_PASSWORD"}'
 
-# Authenticated request
-curl http://localhost:3000/api/activities/ \
+# Authenticated request (use the JWT from the login response)
+curl http://localhost:3000/api/logs/ \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 
 # API key request
-curl http://localhost:3000/api/activities/ \
+curl http://localhost:3000/api/logs/ \
   -H "X-API-Key: YOUR_API_KEY"
 ```
 
@@ -113,11 +145,16 @@ docker compose down -v
 | Symptom | Check |
 |---|---|
 | Port 3000 already in use | `docker compose ps` or change the port mapping in compose.yaml |
-| Backend unhealthy | `docker compose logs backend` |
+| Backend unhealthy | `docker compose logs backend` — the entrypoint waits for the DB, so check the `db` logs too |
 | Redis auth error | Make sure `backend/.env` has `REDIS_URL=redis://:PASSWORD@redis:6379/0` matching the password in `.env` — re-run `python -m generate_env` to regenerate |
-| Database not ready | `docker compose logs db`; migrations may need to run |
+| Database not ready | `docker compose logs db` — the entrypoint retries automatically |
+| Static files / CSS broken | `docker compose exec backend python manage.py collectstatic --noinput` |
+| Demo data missing | `docker compose exec backend python manage.py seed_demo_data` |
 
 ## Production Hardening
+
+> **This section is critical.** The PoC takes numerous shortcuts that are
+> unacceptable for any networked or production deployment.
 
 Before using this outside a local machine, re-enable everything that was
 stripped out:
@@ -135,3 +172,7 @@ stripped out:
 5. **Production frontend build** — replace the Vite dev server with
    `npm run build` + `serve` (or nginx) in the frontend Dockerfile.
 6. **Secrets management** — use a vault or CI secrets; never commit `.env` files.
+7. **User registration / identity** — replace the preset-password scheme with
+   proper user accounts, SSO/SAML, or an identity provider.
+8. **File storage** — switch from local filesystem to S3 or equivalent with
+   proper IAM credentials (see `STORAGES` in settings).
