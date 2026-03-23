@@ -80,3 +80,14 @@ class JWTCookieAuthentication(BaseAuthentication):
 
     def authenticate_header(self, request):
         return "Bearer"
+
+
+def user_is_admin(user) -> bool:
+    """Check admin status for both JWTUser and Django User objects.
+
+    JWTUser has .is_admin (role == "admin").
+    Django User has .is_superuser.
+    """
+    if hasattr(user, "is_admin"):
+        return user.is_admin
+    return getattr(user, "is_superuser", False)

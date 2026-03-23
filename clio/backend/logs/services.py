@@ -3,6 +3,7 @@ from typing import Optional
 
 from django.db import models
 
+from accounts.authentication import user_is_admin
 from logs.encryption import encrypt_field
 from logs.models import Log
 from tags.models import LogTag
@@ -28,7 +29,7 @@ def create_log_with_encryption(serializer, user) -> Log:
 def update_log_with_encryption(log: Log, data: dict, user) -> Log:
     """Update log entry, handling encryption and lock checks."""
     # Check lock
-    if log.locked and log.locked_by != user.username and not user.is_admin:
+    if log.locked and log.locked_by != user.username and not user_is_admin(user):
         raise PermissionError("Log is locked by another user")
 
     # Encrypt secrets if being updated

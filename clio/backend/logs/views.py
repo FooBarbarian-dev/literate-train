@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from django_filters.rest_framework import DjangoFilterBackend
 
+from accounts.authentication import user_is_admin
 from accounts.permissions import IsJWTAuthenticated, IsAdmin
 from logs.filters import LogFilterSet
 from logs.models import Log
@@ -38,7 +39,7 @@ class LogViewSet(viewsets.ModelViewSet):
 
         active_op_tag_id = get_active_operation_tag(user.username)
 
-        if user.is_admin and not active_op_tag_id:
+        if user_is_admin(user) and not active_op_tag_id:
             return qs
         if not active_op_tag_id:
             return qs.none()
@@ -58,7 +59,7 @@ class LogViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         log = self.get_object()
-        if not check_log_lock(log, self.request.user.username, self.request.user.is_admin):
+        if not check_log_lock(log, self.request.user.username, user_is_admin(self.request.user)):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("Log is locked by another user")
 
@@ -66,7 +67,7 @@ class LogViewSet(viewsets.ModelViewSet):
         update_log_with_encryption(log, data, self.request.user)
 
     def perform_destroy(self, instance):
-        if not self.request.user.is_admin:
+        if not user_is_admin(self.request.user):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("Only admins can delete logs")
         instance.delete()
@@ -76,7 +77,7 @@ class LogViewSet(viewsets.ModelViewSet):
     def toggle_lock(self, request, pk=None):
         log = self.get_object()
         try:
-            log = toggle_lock(log, request.user.username, request.user.is_admin)
+            log = toggle_lock(log, request.user.username, user_is_admin(request.user))
         except PermissionError as e:
             return Response(
                 {"error": True, "message": str(e)},
