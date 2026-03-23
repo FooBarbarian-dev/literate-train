@@ -24,6 +24,12 @@ env = environ.Env(
     JWT_ALGORITHM=(str, "HS256"),
     JWT_ACCESS_TOKEN_LIFETIME_MINUTES=(int, 30),
     JWT_REFRESH_TOKEN_LIFETIME_DAYS=(int, 7),
+    # --- Threat Intel / RAG settings ---
+    VLLM_BASE_URL=(str, "http://localhost:8000/v1"),
+    VLLM_API_KEY=(str, "not-needed"),
+    VLLM_MODEL_NAME=(str, ""),
+    NVD_API_KEY=(str, ""),
+    THREAT_RAG_EMBEDDING_BACKEND=(str, "auto"),
 )
 
 environ.Env.read_env()  # reads .env if present
@@ -56,7 +62,10 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "django_filters",
     "corsheaders",
+    # Third-party: AI assistant
+    "django_ai_assistant",
     # Project apps
+    "threat_intel",
     "accounts",
     "logs",
     "tags",
@@ -277,3 +286,15 @@ STORAGES = {
 CELERY_BROKER_URL = env("REDIS_URL", default="redis://localhost:6379/1")
 CELERY_RESULT_BACKEND = env("REDIS_URL", default="redis://localhost:6379/1")
 CELERY_TASK_SERIALIZER = "json"
+
+# ---------------------------------------------------------------------------
+# Threat Intel / RAG / vLLM
+# ---------------------------------------------------------------------------
+
+VLLM_BASE_URL = env("VLLM_BASE_URL")
+VLLM_API_KEY = env("VLLM_API_KEY")
+VLLM_MODEL_NAME = env("VLLM_MODEL_NAME")
+NVD_API_KEY = env("NVD_API_KEY")
+# "auto" probes vLLM; falls back to "sentence-transformers" if no embed model.
+# Force a backend with "vllm" or "sentence-transformers".
+THREAT_RAG_EMBEDDING_BACKEND = env("THREAT_RAG_EMBEDDING_BACKEND")
