@@ -6,7 +6,6 @@ from django.db.models.functions import Lower
 class Log(models.Model):
     """Core log entry model per spec 2.1.1."""
 
-    id = models.AutoField(primary_key=True)
     timestamp = models.DateTimeField(db_index=True)
     internal_ip = models.CharField(max_length=45, blank=True, default="")
     external_ip = models.CharField(max_length=45, blank=True, default="")

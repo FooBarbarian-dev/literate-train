@@ -18,6 +18,7 @@ class EvidenceFile(models.Model):
     description = models.TextField(blank=True, default="")
     md5_hash = models.CharField(max_length=32, blank=True, default="")
     filepath = models.CharField(max_length=255, blank=True, default="")
+    file = models.FileField(upload_to="evidence/", blank=True, null=True)
     metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:

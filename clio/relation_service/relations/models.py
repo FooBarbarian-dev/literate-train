@@ -47,8 +47,11 @@ class Relation(models.Model):
 
     class Meta:
         db_table = "relations"
-        unique_together = [
-            ("source_type", "source_value", "target_type", "target_value"),
+        constraints = [
+            models.UniqueConstraint(
+                fields=["source_type", "source_value", "target_type", "target_value"],
+                name="uq_relation_source_target",
+            ),
         ]
         indexes = [
             models.Index(fields=["source_type", "source_value"], name="idx_rel_source"),

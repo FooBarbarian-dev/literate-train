@@ -1,8 +1,8 @@
 import hashlib
-import os
 import uuid
 
-from django.conf import settings
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.http import FileResponse
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -63,20 +63,18 @@ class EvidenceFileViewSet(viewsets.ModelViewSet):
         md5_hash = md5.hexdigest()
 
         # Generate unique filename
+        import os
         ext = os.path.splitext(uploaded_file.name)[1]
         unique_filename = f"{uuid.uuid4().hex}{ext}"
 
-        # Ensure evidence directory exists
-        evidence_root = getattr(settings, "EVIDENCE_ROOT", "/app/data/evidence")
-        os.makedirs(evidence_root, exist_ok=True)
-
-        filepath = os.path.join(evidence_root, unique_filename)
-
-        # Write file to disk
+        # Save via default_storage (S3 or local)
         uploaded_file.seek(0)
-        with open(filepath, "wb") as f:
-            for chunk in uploaded_file.chunks():
-                f.write(chunk)
+        file_data = uploaded_file.read()
+        path = default_storage.save(
+            f"evidence/{unique_filename}",
+            ContentFile(file_data),
+        )
+        url = default_storage.url(path)
 
         evidence = EvidenceFile.objects.create(
             log_id=log_id,
@@ -87,7 +85,7 @@ class EvidenceFileViewSet(viewsets.ModelViewSet):
             uploaded_by=request.user.username,
             description=description,
             md5_hash=md5_hash,
-            filepath=filepath,
+            filepath=path,
         )
 
         return Response(
@@ -100,14 +98,15 @@ class EvidenceFileViewSet(viewsets.ModelViewSet):
     def download(self, request, pk=None):
         evidence = self.get_object()
 
-        if not os.path.exists(evidence.filepath):
+        if not default_storage.exists(evidence.filepath):
             return Response(
-                {"error": True, "message": "File not found on disk"},
+                {"error": True, "message": "File not found"},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        file_obj = default_storage.open(evidence.filepath, "rb")
         return FileResponse(
-            open(evidence.filepath, "rb"),
+            file_obj,
             as_attachment=True,
             filename=evidence.original_filename,
         )

@@ -1,5 +1,6 @@
 import json
 import re
+import secrets
 
 from django.http import JsonResponse
 
@@ -44,7 +45,8 @@ class CustomCsrfMiddleware:
         csrf_cookie = request.COOKIES.get("_csrf")
         csrf_header = request.META.get("HTTP_X_CSRF_TOKEN")
 
-        if not csrf_cookie or not csrf_header or csrf_cookie != csrf_header:
+        if not csrf_cookie or not csrf_header or \
+                not secrets.compare_digest(csrf_cookie, csrf_header):
             return JsonResponse(
                 {"error": "CSRF validation failed."},
                 status=403,
@@ -82,8 +84,12 @@ class InputSanitizationMiddleware:
         if (
             request.method in self.METHODS_TO_SANITIZE
             and request.content_type == "application/json"
-            and hasattr(request, "data")
+            and hasattr(request, "body")
+            and request.body
         ):
-            request.data = _sanitize(request.data)
-
+            try:
+                data = json.loads(request.body)
+                request._body = json.dumps(_sanitize(data)).encode()
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                pass
         return self.get_response(request)

@@ -59,7 +59,7 @@ def toggle_lock(log: Log, username: str, is_admin: bool) -> Log:
         if log.locked_by != username and not is_admin:
             raise PermissionError("Cannot unlock: locked by another user")
         log.locked = False
-        log.locked_by = None
+        log.locked_by = ""
     else:
         log.locked = True
         log.locked_by = username

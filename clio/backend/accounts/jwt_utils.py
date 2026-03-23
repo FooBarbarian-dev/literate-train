@@ -1,17 +1,18 @@
 import hashlib
 import hmac as hmac_module
-import os
 import time
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
+import environ
 import jwt
 from django.conf import settings
 from rest_framework.exceptions import AuthenticationFailed
 
 from common.redis_client import get_encrypted_redis
 
+env = environ.Env()
 
 TOKEN_LIFETIME = 8 * 3600  # 8 hours in seconds
 REFRESH_THRESHOLD = 0.75
@@ -19,7 +20,7 @@ REFRESH_THRESHOLD = 0.75
 
 def generate_admin_proof(username: str) -> str:
     """Generate HMAC-SHA256 admin proof."""
-    secret = os.environ.get("ADMIN_SECRET", "")
+    secret = env("ADMIN_SECRET", default="")
     return hmac_module.new(
         secret.encode(), username.encode(), hashlib.sha256
     ).hexdigest()
@@ -43,12 +44,12 @@ def issue_token(username: str, role: str) -> tuple[str, dict]:
         "username": username,
         "role": role,
         "adminProof": admin_proof,
-        "serverInstanceId": os.environ.get("SERVER_INSTANCE_ID", ""),
+        "serverInstanceId": env("SERVER_INSTANCE_ID", default=""),
         "iat": int(now.timestamp()),
         "exp": int((now + timedelta(seconds=TOKEN_LIFETIME)).timestamp()),
     }
 
-    token = jwt.encode(payload, os.environ.get("JWT_SECRET", ""), algorithm="HS256")
+    token = jwt.encode(payload, env("JWT_SECRET", default=""), algorithm="HS256")
 
     # Store in Redis
     redis_client = get_encrypted_redis()
@@ -89,7 +90,7 @@ def verify_token(token: str) -> dict:
     # 5. Verify signature
     try:
         payload = jwt.decode(
-            token, os.environ.get("JWT_SECRET", ""), algorithms=["HS256"]
+            token, env("JWT_SECRET", default=""), algorithms=["HS256"]
         )
     except jwt.InvalidSignatureError:
         raise AuthenticationFailed("Invalid token signature")
@@ -97,7 +98,7 @@ def verify_token(token: str) -> dict:
         raise AuthenticationFailed("Token expired")
 
     # 6. Verify server instance ID
-    if payload.get("serverInstanceId") != os.environ.get("SERVER_INSTANCE_ID", ""):
+    if payload.get("serverInstanceId") != env("SERVER_INSTANCE_ID", default=""):
         raise AuthenticationFailed("Token from previous server instance")
 
     # 7. Return user context

@@ -1,4 +1,6 @@
-import os
+import environ
+
+env = environ.Env()
 
 from django.core.management.base import BaseCommand
 
@@ -12,13 +14,13 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         redis_client = get_encrypted_redis()
 
-        admin_password = os.environ.get("ADMIN_PASSWORD")
+        admin_password = env("ADMIN_PASSWORD", default="")
         if admin_password:
             hashed = hash_password(admin_password)
             redis_client.set("initial:admin_password", hashed)
             self.stdout.write(self.style.SUCCESS("Initial admin password hashed and stored"))
 
-        user_password = os.environ.get("USER_PASSWORD")
+        user_password = env("USER_PASSWORD", default="")
         if user_password:
             hashed = hash_password(user_password)
             redis_client.set("initial:user_password", hashed)

@@ -2,19 +2,30 @@
 Django settings for relation_service project.
 """
 
-import os
 from pathlib import Path
+
+import environ
+
+env = environ.Env(
+    DJANGO_DEBUG=(bool, False),
+    DJANGO_SECRET_KEY=(str, "django-insecure-change-me-in-production"),
+    DJANGO_ALLOWED_HOSTS=(list, ["*"]),
+    DB_NAME=(str, "clio"),
+    DB_USER=(str, "clio"),
+    DB_PASSWORD=(str, "clio"),
+    DB_HOST=(str, "localhost"),
+    DB_PORT=(str, "5432"),
+)
+
+environ.Env.read_env()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.environ.get(
-    "DJANGO_SECRET_KEY",
-    "django-insecure-change-me-in-production",
-)
+SECRET_KEY = env("DJANGO_SECRET_KEY")
 
-DEBUG = os.environ.get("DJANGO_DEBUG", "False").lower() in ("true", "1", "yes")
+DEBUG = env("DJANGO_DEBUG")
 
-ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "*").split(",")
+ALLOWED_HOSTS = env("DJANGO_ALLOWED_HOSTS")
 
 # ---------------------------------------------------------------------------
 # Application definition
@@ -46,11 +57,11 @@ ASGI_APPLICATION = "relation_service.asgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("DB_NAME", "clio"),
-        "USER": os.environ.get("DB_USER", "clio"),
-        "PASSWORD": os.environ.get("DB_PASSWORD", "clio"),
-        "HOST": os.environ.get("DB_HOST", "localhost"),
-        "PORT": os.environ.get("DB_PORT", "5432"),
+        "NAME": env("DB_NAME"),
+        "USER": env("DB_USER"),
+        "PASSWORD": env("DB_PASSWORD"),
+        "HOST": env("DB_HOST"),
+        "PORT": env("DB_PORT"),
     }
 }
 

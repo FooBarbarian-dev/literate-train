@@ -6,7 +6,7 @@ class Operation(models.Model):
 
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True, default="")
-    tag_id = models.ForeignKey(
+    tag = models.ForeignKey(
         "tags.Tag",
         on_delete=models.SET_NULL,
         null=True,
@@ -22,7 +22,7 @@ class Operation(models.Model):
     class Meta:
         db_table = "operations"
         indexes = [
-            models.Index(fields=["tag_id"], name="idx_ops_tag"),
+            models.Index(fields=["tag"], name="idx_ops_tag"),
             models.Index(fields=["is_active"], name="idx_ops_is_active"),
         ]
 
@@ -34,7 +34,7 @@ class UserOperation(models.Model):
     """Maps a username to an operation, controlling access scope."""
 
     username = models.CharField(max_length=100)
-    operation_id = models.ForeignKey(
+    operation = models.ForeignKey(
         Operation,
         on_delete=models.CASCADE,
         db_column="operation_id",
@@ -47,11 +47,16 @@ class UserOperation(models.Model):
 
     class Meta:
         db_table = "user_operations"
-        unique_together = [("username", "operation_id")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["username", "operation"],
+                name="uq_useroperation_username_operation",
+            ),
+        ]
         indexes = [
             models.Index(fields=["username"], name="idx_userop_username"),
-            models.Index(fields=["operation_id"], name="idx_userop_op"),
+            models.Index(fields=["operation"], name="idx_userop_op"),
         ]
 
     def __str__(self):
-        return f"{self.username} -> {self.operation_id}"
+        return f"{self.username} -> {self.operation}"

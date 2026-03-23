@@ -36,7 +36,7 @@ class OperationViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Operation.objects.filter(is_active=True).select_related("tag").annotate(
-            user_count=Count("useroperation")
+            user_count=Count("user_operations")
         )
 
     def get_serializer_class(self):
