@@ -39,10 +39,8 @@ class LogViewSet(viewsets.ModelViewSet):
 
         active_op_tag_id = get_active_operation_tag(user.username)
 
-        if user_is_admin(user) and not active_op_tag_id:
-            return qs
         if not active_op_tag_id:
-            return qs.none()
+            return qs
         return qs.filter(log_tags__tag_id=active_op_tag_id).distinct()
 
     def get_serializer_class(self):
