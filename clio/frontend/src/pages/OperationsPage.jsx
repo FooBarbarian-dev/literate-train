@@ -98,8 +98,8 @@ export default function OperationsPage() {
       const ops = Array.isArray(data) ? data : data.results || []
       setOperations(ops)
 
-      const active = ops.find((op) => op.is_active)
-      if (active) setActiveOpId(active.id)
+      const active = ops.find((op) => op.is_user_active)
+      setActiveOpId(active ? active.id : null)
     } catch {
       setError('Failed to fetch operations')
     } finally {

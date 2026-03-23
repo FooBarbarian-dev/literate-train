@@ -1,3 +1,5 @@
+import logging
+
 from django.db.models import Count
 from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes
@@ -5,6 +7,7 @@ from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, extend_schema_view
 
 from accounts.permissions import IsJWTAuthenticated, IsAdmin
+from common.redis_client import get_encrypted_redis
 from operations.models import Operation, UserOperation
 from operations.serializers import (
     OperationSerializer,
@@ -20,6 +23,8 @@ from operations.services import (
     set_active_operation,
     get_user_operations,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @extend_schema_view(
@@ -38,6 +43,22 @@ class OperationViewSet(viewsets.ModelViewSet):
         return Operation.objects.filter(is_active=True).select_related("tag").annotate(
             user_count=Count("user_operations")
         )
+
+    def list(self, request, *args, **kwargs):
+        response = super().list(request, *args, **kwargs)
+        # Annotate each operation with whether it's the user's active one.
+        # is_active on the model means "not deactivated"; is_user_active
+        # means "this user's currently selected operation" (stored in Redis).
+        try:
+            redis_client = get_encrypted_redis()
+            active_op_id = redis_client.get(
+                f"user:{request.user.username}:active_operation"
+            )
+        except Exception:
+            active_op_id = None
+        for item in response.data if isinstance(response.data, list) else response.data.get("results", []):
+            item["is_user_active"] = str(item["id"]) == active_op_id
+        return response
 
     def get_serializer_class(self):
         if self.action == "create":

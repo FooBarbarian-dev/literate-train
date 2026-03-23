@@ -182,11 +182,22 @@ export default function LogsPage() {
   const [totalPages, setTotalPages] = useState(1)
   const [modalLog, setModalLog] = useState(null)
   const [showModal, setShowModal] = useState(false)
+  const [activeOperation, setActiveOperation] = useState(null)
   const [filters, setFilters] = useState({
     hostname: '',
     ip_address: '',
     status: '',
   })
+
+  useEffect(() => {
+    client
+      .get('/operations/operations/my-operations/')
+      .then((res) => {
+        const active = (res.data || []).find((op) => op.is_active)
+        setActiveOperation(active || null)
+      })
+      .catch(() => {})
+  }, [])
 
   const fetchLogs = useCallback(async () => {
     setLoading(true)
@@ -267,6 +278,26 @@ export default function LogsPage() {
           + New Log
         </button>
       </div>
+
+      {activeOperation ? (
+        <div className="operation-banner">
+          <span className="operation-banner-label">Operation:</span>
+          <strong>{activeOperation.operation_name}</strong>
+          {activeOperation.tag_name && (
+            <span
+              className="tag"
+              style={{ backgroundColor: activeOperation.tag_color || '#3B82F6', color: '#fff', marginLeft: '0.5rem' }}
+            >
+              {activeOperation.tag_name}
+            </span>
+          )}
+        </div>
+      ) : (
+        <div className="operation-banner operation-banner-warn">
+          No active operation set &mdash; showing all logs.
+          <a href="/operations" style={{ marginLeft: '0.5rem' }}>Select one</a>
+        </div>
+      )}
 
       <div className="filters-bar">
         <input

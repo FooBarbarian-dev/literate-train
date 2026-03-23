@@ -256,6 +256,13 @@ class Command(BaseCommand):
                 )
                 existing_tags[tag_name] = tag
 
+        # Build operation name -> operation tag lookup
+        op_names = [op_data["name"] for op_data in DEMO_OPERATIONS]
+        op_tag_map = {}
+        for op in Operation.objects.filter(name__in=op_names).select_related("tag"):
+            if op.tag:
+                op_tag_map[op.name] = op.tag
+
         for log_data in DEMO_LOGS:
             ts = now + timedelta(hours=log_data["timestamp_offset_hours"])
             log, created = Log.objects.get_or_create(
@@ -273,7 +280,7 @@ class Command(BaseCommand):
                 },
             )
             if created:
-                # Add tags
+                # Add technique tags
                 for tag_name in log_data.get("tags", []):
                     tag = existing_tags[tag_name]
                     LogTag.objects.get_or_create(
@@ -281,6 +288,22 @@ class Command(BaseCommand):
                         tag=tag,
                         defaults={"tagged_by": "system"},
                     )
+                # Link log to its operation's tag
+                op_tag = op_tag_map.get(log_data["op"])
+                if op_tag:
+                    LogTag.objects.get_or_create(
+                        log=log,
+                        tag=op_tag,
+                        defaults={"tagged_by": "system"},
+                    )
                 self.stdout.write(f"  Created log: {log_data['command'][:60]}...")
             else:
+                # Ensure operation tag link exists for pre-existing logs too
+                op_tag = op_tag_map.get(log_data["op"])
+                if op_tag:
+                    LogTag.objects.get_or_create(
+                        log=log,
+                        tag=op_tag,
+                        defaults={"tagged_by": "system"},
+                    )
                 self.stdout.write(f"  Log already exists: {log_data['command'][:60]}...")
