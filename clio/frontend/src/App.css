@@ -166,6 +166,22 @@ a:hover {
   background: rgba(59, 130, 246, 0.1);
 }
 
+.navbar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-primary);
+  margin: 0 4px;
+}
+
+.navbar-link-admin {
+  color: var(--accent-purple, #a855f7);
+}
+
+.navbar-link-admin:hover {
+  color: var(--accent-purple, #a855f7);
+  background: rgba(168, 85, 247, 0.1);
+}
+
 .navbar-user {
   margin-left: auto;
   display: flex;

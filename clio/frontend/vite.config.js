@@ -11,6 +11,14 @@ export default defineConfig({
         target: 'http://backend:3001',
         changeOrigin: true,
       },
+      '/admin': {
+        target: 'http://backend:3001',
+        changeOrigin: true,
+      },
+      '/static': {
+        target: 'http://backend:3001',
+        changeOrigin: true,
+      },
       '/relation-service': {
         target: 'http://relation-service:3002',
         changeOrigin: true,
