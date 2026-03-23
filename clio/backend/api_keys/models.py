@@ -1,6 +1,10 @@
 from django.db import models
 
 
+def default_permissions():
+    return ["logs:write"]
+
+
 class ApiKey(models.Model):
     """API key for programmatic access to the Clio platform."""
 
@@ -8,7 +12,7 @@ class ApiKey(models.Model):
     key_id = models.CharField(max_length=50, unique=True)
     key_hash = models.CharField(max_length=255)
     created_by = models.CharField(max_length=100, blank=True, default="")
-    permissions = models.JSONField(default=lambda: ["logs:write"])
+    permissions = models.JSONField(default=default_permissions)
     description = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

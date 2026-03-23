@@ -1,10 +1,15 @@
+from __future__ import annotations
+
 import json
 import os
 from typing import Optional
 
+import environ
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from django.conf import settings
 import redis
+
+env = environ.Env()
 
 
 class EncryptedRedis:
@@ -72,18 +77,18 @@ _encrypted_redis: Optional[EncryptedRedis] = None
 def get_encrypted_redis() -> EncryptedRedis:
     global _encrypted_redis
     if _encrypted_redis is None:
-        redis_password = os.environ.get("REDIS_PASSWORD", "")
-        redis_host = os.environ.get("REDIS_HOST", "redis")
-        redis_port = int(os.environ.get("REDIS_PORT", "6379"))
+        redis_password = env("REDIS_PASSWORD", default="")
+        redis_host = env("REDIS_HOST", default="redis")
+        redis_port = env.int("REDIS_PORT", default=6379)
 
         redis_client = redis.Redis(
             host=redis_host,
             port=redis_port,
             password=redis_password,
-            ssl=os.environ.get("REDIS_SSL", "true").lower() == "true",
+            ssl=env.bool("REDIS_SSL", default=True),
             ssl_cert_reqs=None,
             decode_responses=False,
         )
-        encryption_key = os.environ.get("REDIS_ENCRYPTION_KEY", "")
+        encryption_key = env("REDIS_ENCRYPTION_KEY", default="")
         _encrypted_redis = EncryptedRedis(redis_client, encryption_key)
     return _encrypted_redis

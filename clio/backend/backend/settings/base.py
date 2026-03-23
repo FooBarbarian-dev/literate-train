@@ -2,22 +2,46 @@
 Base Django settings for the Clio platform.
 """
 
-import os
 from pathlib import Path
+
+import environ
+
+env = environ.Env(
+    DJANGO_DEBUG=(bool, False),
+    DJANGO_SECRET_KEY=(str, "django-insecure-change-me-in-production"),
+    DJANGO_ALLOWED_HOSTS=(list, [""]),
+    POSTGRES_DB=(str, "clio"),
+    POSTGRES_USER=(str, "clio"),
+    POSTGRES_PASSWORD=(str, "clio"),
+    POSTGRES_HOST=(str, "localhost"),
+    POSTGRES_PORT=(str, "5432"),
+    REDIS_URL=(str, "redis://localhost:6379/0"),
+    CORS_ALLOWED_ORIGINS=(list, ["http://localhost:3000"]),
+    EVIDENCE_ROOT=(str, ""),
+    DATA_ROOT=(str, ""),
+    EXPORT_ROOT=(str, ""),
+    JWT_SECRET=(str, ""),
+    JWT_ALGORITHM=(str, "HS256"),
+    JWT_ACCESS_TOKEN_LIFETIME_MINUTES=(int, 30),
+    JWT_REFRESH_TOKEN_LIFETIME_DAYS=(int, 7),
+    AWS_ACCESS_KEY_ID=(str, ""),
+    AWS_SECRET_ACCESS_KEY=(str, ""),
+    AWS_STORAGE_BUCKET_NAME=(str, ""),
+    AWS_S3_REGION_NAME=(str, "us-east-1"),
+)
+
+environ.Env.read_env()  # reads .env if present
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get(
-    "DJANGO_SECRET_KEY",
-    "django-insecure-change-me-in-production",
-)
+SECRET_KEY = env("DJANGO_SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get("DJANGO_DEBUG", "False").lower() in ("true", "1", "yes")
+DEBUG = env("DJANGO_DEBUG")
 
-ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",")
+ALLOWED_HOSTS = env("DJANGO_ALLOWED_HOSTS")
 
 # ---------------------------------------------------------------------------
 # Application definition
@@ -53,6 +77,7 @@ MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "common.middleware.SecurityHeadersMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "common.middleware.CustomCsrfMiddleware",
@@ -90,11 +115,16 @@ ASGI_APPLICATION = "backend.asgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("POSTGRES_DB", "clio"),
-        "USER": os.environ.get("POSTGRES_USER", "clio"),
-        "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "clio"),
-        "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
-        "PORT": os.environ.get("POSTGRES_PORT", "5432"),
+        "NAME": env("POSTGRES_DB"),
+        "USER": env("POSTGRES_USER"),
+        "PASSWORD": env("POSTGRES_PASSWORD"),
+        "HOST": env("POSTGRES_HOST"),
+        "PORT": env("POSTGRES_PORT"),
+        "CONN_MAX_AGE": 0,
+        "CONN_HEALTH_CHECKS": True,
+        "OPTIONS": {
+            "pool": True,
+        },
     }
 }
 
@@ -105,7 +135,7 @@ DATABASES = {
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": os.environ.get("REDIS_URL", "redis://localhost:6379/0"),
+        "LOCATION": env("REDIS_URL"),
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
         },
@@ -153,6 +183,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
+        "accounts.authentication.JWTCookieAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
@@ -201,9 +232,7 @@ SPECTACULAR_SETTINGS = {
 # CORS
 # ---------------------------------------------------------------------------
 
-CORS_ALLOWED_ORIGINS = os.environ.get(
-    "CORS_ALLOWED_ORIGINS", "http://localhost:3000"
-).split(",")
+CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -211,28 +240,51 @@ CORS_ALLOW_CREDENTIALS = True
 # Evidence / File storage paths
 # ---------------------------------------------------------------------------
 
-EVIDENCE_ROOT = os.environ.get("EVIDENCE_ROOT", str(BASE_DIR / "evidence"))
-DATA_ROOT = os.environ.get("DATA_ROOT", str(BASE_DIR / "data"))
-EXPORT_ROOT = os.environ.get("EXPORT_ROOT", str(BASE_DIR / "exports"))
+EVIDENCE_ROOT = env("EVIDENCE_ROOT", default=str(BASE_DIR / "evidence"))
+DATA_ROOT = env("DATA_ROOT", default=str(BASE_DIR / "data"))
+EXPORT_ROOT = env("EXPORT_ROOT", default=str(BASE_DIR / "exports"))
 
 # ---------------------------------------------------------------------------
 # JWT / Auth settings
 # ---------------------------------------------------------------------------
 
-JWT_SECRET = os.environ.get("JWT_SECRET", SECRET_KEY)
-JWT_ALGORITHM = os.environ.get("JWT_ALGORITHM", "HS256")
-JWT_ACCESS_TOKEN_LIFETIME_MINUTES = int(
-    os.environ.get("JWT_ACCESS_TOKEN_LIFETIME_MINUTES", "30")
-)
-JWT_REFRESH_TOKEN_LIFETIME_DAYS = int(
-    os.environ.get("JWT_REFRESH_TOKEN_LIFETIME_DAYS", "7")
-)
+JWT_SECRET = env("JWT_SECRET", default=SECRET_KEY)
+JWT_ALGORITHM = env("JWT_ALGORITHM")
+JWT_ACCESS_TOKEN_LIFETIME_MINUTES = env("JWT_ACCESS_TOKEN_LIFETIME_MINUTES")
+JWT_REFRESH_TOKEN_LIFETIME_DAYS = env("JWT_REFRESH_TOKEN_LIFETIME_DAYS")
 
 # ---------------------------------------------------------------------------
 # AWS / S3 (optional)
 # ---------------------------------------------------------------------------
 
-AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID", "")
-AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
-AWS_STORAGE_BUCKET_NAME = os.environ.get("AWS_STORAGE_BUCKET_NAME", "")
-AWS_S3_REGION_NAME = os.environ.get("AWS_S3_REGION_NAME", "us-east-1")
+AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY")
+AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME")
+AWS_S3_REGION_NAME = env("AWS_S3_REGION_NAME")
+
+# ---------------------------------------------------------------------------
+# Storage backends (django-storages)
+# ---------------------------------------------------------------------------
+
+STORAGES = {
+    "default": {
+        "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+        "OPTIONS": {
+            "bucket_name": AWS_STORAGE_BUCKET_NAME,
+            "region_name": AWS_S3_REGION_NAME,
+            "access_key": AWS_ACCESS_KEY_ID,
+            "secret_key": AWS_SECRET_ACCESS_KEY,
+        },
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
+
+# ---------------------------------------------------------------------------
+# Celery
+# ---------------------------------------------------------------------------
+
+CELERY_BROKER_URL = env("REDIS_URL", default="redis://localhost:6379/1")
+CELERY_RESULT_BACKEND = env("REDIS_URL", default="redis://localhost:6379/1")
+CELERY_TASK_SERIALIZER = "json"

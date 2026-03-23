@@ -2,20 +2,15 @@
 Production settings for the Clio platform.
 """
 
-import os
-
 from .base import *  # noqa: F401, F403
+from .base import env
 
 DEBUG = False
 
-ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",")
+ALLOWED_HOSTS = env("DJANGO_ALLOWED_HOSTS")
 
 # Security settings
-SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "True").lower() in (
-    "true",
-    "1",
-    "yes",
-)
+SECURE_SSL_REDIRECT = env("SECURE_SSL_REDIRECT", default=True)
 SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
@@ -26,7 +21,5 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 
 # CORS - restrict in production
 CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOWED_ORIGINS = os.environ.get(
-    "CORS_ALLOWED_ORIGINS", ""
-).split(",")
+CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
 CORS_ALLOW_CREDENTIALS = True

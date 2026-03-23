@@ -1,11 +1,14 @@
 import json
 import os
 
+import environ
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+env = environ.Env()
 
 
 def encrypt_field(plaintext: str) -> str:
-    key = bytes.fromhex(os.environ.get("FIELD_ENCRYPTION_KEY", ""))
+    key = bytes.fromhex(env("FIELD_ENCRYPTION_KEY", default=""))
     aesgcm = AESGCM(key)
     iv = os.urandom(12)
     ciphertext = aesgcm.encrypt(iv, plaintext.encode(), None)
@@ -22,7 +25,7 @@ def encrypt_field(plaintext: str) -> str:
 def decrypt_field(stored: str) -> str:
     try:
         data = json.loads(stored)
-        key = bytes.fromhex(os.environ.get("FIELD_ENCRYPTION_KEY", ""))
+        key = bytes.fromhex(env("FIELD_ENCRYPTION_KEY", default=""))
         aesgcm = AESGCM(key)
         iv = bytes.fromhex(data["iv"])
         ct = bytes.fromhex(data["encrypted"]) + bytes.fromhex(data["authTag"])

@@ -1,8 +1,11 @@
-import os
 from typing import Optional
+
+import environ
 
 from accounts.hashers import hash_password, verify_password
 from common.redis_client import get_encrypted_redis
+
+env = environ.Env()
 
 
 def authenticate_user(username: str, password: str) -> Optional[dict]:
@@ -31,12 +34,12 @@ def authenticate_user(username: str, password: str) -> Optional[dict]:
         return None  # Has custom password, don't fall through
 
     # Check initial admin password
-    initial_admin = os.environ.get("ADMIN_PASSWORD", "")
+    initial_admin = env("ADMIN_PASSWORD", default="")
     if initial_admin and password == initial_admin:
         return {"username": username, "role": "admin", "requiresPasswordChange": True}
 
     # Check initial user password
-    initial_user = os.environ.get("USER_PASSWORD", "")
+    initial_user = env("USER_PASSWORD", default="")
     if initial_user and password == initial_user:
         return {"username": username, "role": "user", "requiresPasswordChange": True}
 

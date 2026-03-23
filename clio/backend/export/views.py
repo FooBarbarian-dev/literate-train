@@ -1,14 +1,9 @@
 import csv
 import io
 import json
-import os
-import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 
-from django.conf import settings
-from django.http import FileResponse
-from rest_framework import status
-from rest_framework.response import Response
+from django.http import StreamingHttpResponse
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema
@@ -57,7 +52,7 @@ LOG_EXPORT_FIELDS = [
 
 
 class ExportJSONView(APIView):
-    """Export logs as a JSON file."""
+    """Export logs as a JSON stream."""
     permission_classes = [IsJWTAuthenticated]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "export"
@@ -72,34 +67,28 @@ class ExportJSONView(APIView):
         filter_serializer.is_valid(raise_exception=True)
 
         qs = _get_filtered_queryset(filter_serializer.validated_data)
-        logs = list(qs.values(*LOG_EXPORT_FIELDS))
 
-        # Serialize datetime fields
-        for log_entry in logs:
-            for key, value in log_entry.items():
-                if isinstance(value, datetime):
-                    log_entry[key] = value.isoformat()
+        def stream_json():
+            yield "["
+            first = True
+            for row in qs.values(*LOG_EXPORT_FIELDS).iterator():
+                serialized = {
+                    k: v.isoformat() if isinstance(v, datetime) else v
+                    for k, v in row.items()
+                }
+                if not first:
+                    yield ","
+                first = False
+                yield json.dumps(serialized, default=str)
+            yield "]"
 
-        # Write to export directory
-        export_root = getattr(settings, "EXPORT_ROOT", "/app/data/exports")
-        os.makedirs(export_root, exist_ok=True)
-
-        export_filename = f"export_{uuid.uuid4().hex}.json"
-        export_path = os.path.join(export_root, export_filename)
-
-        with open(export_path, "w") as f:
-            json.dump(logs, f, indent=2, default=str)
-
-        return FileResponse(
-            open(export_path, "rb"),
-            as_attachment=True,
-            filename=export_filename,
-            content_type="application/json",
-        )
+        response = StreamingHttpResponse(stream_json(), content_type="application/json")
+        response["Content-Disposition"] = 'attachment; filename="export.json"'
+        return response
 
 
 class ExportCSVView(APIView):
-    """Export logs as a CSV file."""
+    """Export logs as a CSV stream."""
     permission_classes = [IsJWTAuthenticated]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "export"
@@ -114,27 +103,24 @@ class ExportCSVView(APIView):
         filter_serializer.is_valid(raise_exception=True)
 
         qs = _get_filtered_queryset(filter_serializer.validated_data)
-        logs = list(qs.values(*LOG_EXPORT_FIELDS))
 
-        # Write to export directory
-        export_root = getattr(settings, "EXPORT_ROOT", "/app/data/exports")
-        os.makedirs(export_root, exist_ok=True)
-
-        export_filename = f"export_{uuid.uuid4().hex}.csv"
-        export_path = os.path.join(export_root, export_filename)
-
-        with open(export_path, "w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=LOG_EXPORT_FIELDS)
+        def stream_csv():
+            buffer = io.StringIO()
+            writer = csv.DictWriter(buffer, fieldnames=LOG_EXPORT_FIELDS)
             writer.writeheader()
-            for log_entry in logs:
+            yield buffer.getvalue()
+            buffer.seek(0)
+            buffer.truncate(0)
+
+            for row in qs.values(*LOG_EXPORT_FIELDS).iterator():
                 writer.writerow({
                     k: v.isoformat() if isinstance(v, datetime) else v
-                    for k, v in log_entry.items()
+                    for k, v in row.items()
                 })
+                yield buffer.getvalue()
+                buffer.seek(0)
+                buffer.truncate(0)
 
-        return FileResponse(
-            open(export_path, "rb"),
-            as_attachment=True,
-            filename=export_filename,
-            content_type="text/csv",
-        )
+        response = StreamingHttpResponse(stream_csv(), content_type="text/csv")
+        response["Content-Disposition"] = 'attachment; filename="export.csv"'
+        return response

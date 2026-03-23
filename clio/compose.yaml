@@ -70,6 +70,24 @@ services:
     env_file:
       - ./backend/.env
 
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: celery -A backend worker --loglevel=info
+    volumes:
+      - evidence_files:/app/evidence
+      - ./backend/data:/app/data
+      - ./certs:/app/certs:ro
+    networks:
+      - backend-network
+    depends_on:
+      - redis
+      - db
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+
   relation-service:
     build:
       context: ./relation_service

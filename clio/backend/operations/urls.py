@@ -1,6 +1,8 @@
 from rest_framework.routers import DefaultRouter
 from operations.views import OperationViewSet
 
+app_name = "operations"
+
 router = DefaultRouter()
 router.register(r"operations", OperationViewSet, basename="operation")
 

@@ -48,7 +48,12 @@ class LogTag(models.Model):
 
     class Meta:
         db_table = "log_tags"
-        unique_together = [("log", "tag")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["log", "tag"],
+                name="uq_logtag_log_tag",
+            ),
+        ]
         indexes = [
             models.Index(fields=["log"], name="idx_logtag_log"),
             models.Index(fields=["tag"], name="idx_logtag_tag"),
