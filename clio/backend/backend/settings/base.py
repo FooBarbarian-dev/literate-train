@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.postgres",
     # Third-party
     "rest_framework",
     "drf_spectacular",
@@ -67,6 +68,7 @@ INSTALLED_APPS = [
     "sessions_mgmt",
     "templates_mgmt",
     "audit",
+    "relations",
 ]
 
 MIDDLEWARE = [

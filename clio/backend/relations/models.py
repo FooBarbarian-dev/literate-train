@@ -58,16 +58,6 @@ class Relation(models.Model):
             models.Index(fields=["target_type", "target_value"], name="idx_rel_target"),
             models.Index(fields=["pattern_type"], name="idx_rel_pattern_type"),
             models.Index(fields=["last_seen"], name="idx_rel_last_seen"),
-            models.Index(
-                name="idx_rel_operation_tags",
-                fields=["operation_tags"],
-                opclasses=["gin__int_ops"],
-            ),
-            models.Index(
-                name="idx_rel_source_log_ids",
-                fields=["source_log_ids"],
-                opclasses=["gin__int_ops"],
-            ),
         ]
 
     def __str__(self):
@@ -178,7 +168,7 @@ class FileStatusHistory(models.Model):
 
 
 class LogRelationship(models.Model):
-    """Tracks relationships between log entries (cross-service reference by ID)."""
+    """Tracks relationships between log entries."""
 
     TYPE_CHOICES = [
         ("parent_child", "Parent-Child"),

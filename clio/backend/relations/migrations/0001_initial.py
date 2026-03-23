@@ -72,11 +72,12 @@ class Migration(migrations.Migration):
                 "db_table": "relations",
             },
         ),
-        migrations.AlterUniqueTogether(
-            name="relation",
-            unique_together={
-                ("source_type", "source_value", "target_type", "target_value"),
-            },
+        migrations.AddConstraint(
+            model_name="relation",
+            constraint=models.UniqueConstraint(
+                fields=("source_type", "source_value", "target_type", "target_value"),
+                name="uq_relation_source_target",
+            ),
         ),
         migrations.AddIndex(
             model_name="relation",
@@ -92,31 +93,97 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name="relation",
-            index=models.Index(
-                fields=["pattern_type"], name="idx_rel_pattern_type"
-            ),
+            index=models.Index(fields=["pattern_type"], name="idx_rel_pattern_type"),
         ),
         migrations.AddIndex(
             model_name="relation",
+            index=models.Index(fields=["last_seen"], name="idx_rel_last_seen"),
+        ),
+        # -----------------------------------------------------------------
+        # LogRelationship
+        # -----------------------------------------------------------------
+        migrations.CreateModel(
+            name="LogRelationship",
+            fields=[
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("source_id", models.IntegerField(db_index=True)),
+                ("target_id", models.IntegerField(db_index=True)),
+                (
+                    "type",
+                    models.CharField(
+                        choices=[
+                            ("parent_child", "Parent-Child"),
+                            ("linked", "Linked"),
+                            ("dependency", "Dependency"),
+                            ("correlation", "Correlation"),
+                        ],
+                        max_length=50,
+                    ),
+                ),
+                ("relationship", models.CharField(blank=True, default="", max_length=100)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("created_by", models.CharField(blank=True, default="", max_length=100)),
+                ("notes", models.TextField(blank=True, default="")),
+            ],
+            options={
+                "db_table": "log_relationships",
+            },
+        ),
+        migrations.AddIndex(
+            model_name="logrelationship",
             index=models.Index(
-                fields=["last_seen"], name="idx_rel_last_seen"
+                fields=["source_id", "target_id"], name="idx_lr_src_tgt"
             ),
         ),
         migrations.AddIndex(
-            model_name="relation",
+            model_name="logrelationship",
+            index=models.Index(fields=["type"], name="idx_lr_type"),
+        ),
+        # -----------------------------------------------------------------
+        # TagRelationship
+        # -----------------------------------------------------------------
+        migrations.CreateModel(
+            name="TagRelationship",
+            fields=[
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("source_tag_id", models.IntegerField(db_index=True)),
+                ("target_tag_id", models.IntegerField(db_index=True)),
+                ("cooccurrence_count", models.IntegerField(default=1)),
+                ("sequence_count", models.IntegerField(default=0)),
+                ("correlation_strength", models.FloatField(default=0.0)),
+                ("first_seen", models.DateTimeField(auto_now_add=True)),
+                ("last_seen", models.DateTimeField(auto_now=True)),
+                ("metadata", models.JSONField(blank=True, default=dict)),
+            ],
+            options={
+                "db_table": "tag_relationships",
+            },
+        ),
+        migrations.AddIndex(
+            model_name="tagrelationship",
             index=models.Index(
-                fields=["operation_tags"],
-                name="idx_rel_operation_tags",
-                opclasses=["gin__int_ops"],
+                fields=["source_tag_id", "target_tag_id"], name="idx_tr_src_tgt"
             ),
         ),
         migrations.AddIndex(
-            model_name="relation",
-            index=models.Index(
-                fields=["source_log_ids"],
-                name="idx_rel_source_log_ids",
-                opclasses=["gin__int_ops"],
-            ),
+            model_name="tagrelationship",
+            index=models.Index(fields=["correlation_strength"], name="idx_tr_corr"),
         ),
         # -----------------------------------------------------------------
         # FileStatus
@@ -135,27 +202,12 @@ class Migration(migrations.Migration):
                 ),
                 ("filename", models.CharField(max_length=254)),
                 ("status", models.CharField(blank=True, default="", max_length=50)),
-                (
-                    "hash_algorithm",
-                    models.CharField(blank=True, default="", max_length=50),
-                ),
-                (
-                    "hash_value",
-                    models.CharField(blank=True, default="", max_length=128),
-                ),
+                ("hash_algorithm", models.CharField(blank=True, default="", max_length=50)),
+                ("hash_value", models.CharField(blank=True, default="", max_length=128)),
                 ("hostname", models.CharField(blank=True, default="", max_length=75)),
-                (
-                    "internal_ip",
-                    models.CharField(blank=True, default="", max_length=45),
-                ),
-                (
-                    "external_ip",
-                    models.CharField(blank=True, default="", max_length=45),
-                ),
-                (
-                    "mac_address",
-                    models.CharField(blank=True, default="", max_length=17),
-                ),
+                ("internal_ip", models.CharField(blank=True, default="", max_length=45)),
+                ("external_ip", models.CharField(blank=True, default="", max_length=45)),
+                ("mac_address", models.CharField(blank=True, default="", max_length=17)),
                 ("username", models.CharField(blank=True, default="", max_length=75)),
                 ("analyst", models.CharField(blank=True, default="", max_length=100)),
                 ("notes", models.TextField(blank=True, default="")),
@@ -227,31 +279,13 @@ class Migration(migrations.Migration):
                 ),
                 ("filename", models.CharField(max_length=254)),
                 ("status", models.CharField(blank=True, default="", max_length=50)),
-                (
-                    "previous_status",
-                    models.CharField(blank=True, default="", max_length=50),
-                ),
-                (
-                    "hash_algorithm",
-                    models.CharField(blank=True, default="", max_length=50),
-                ),
-                (
-                    "hash_value",
-                    models.CharField(blank=True, default="", max_length=128),
-                ),
+                ("previous_status", models.CharField(blank=True, default="", max_length=50)),
+                ("hash_algorithm", models.CharField(blank=True, default="", max_length=50)),
+                ("hash_value", models.CharField(blank=True, default="", max_length=128)),
                 ("hostname", models.CharField(blank=True, default="", max_length=75)),
-                (
-                    "internal_ip",
-                    models.CharField(blank=True, default="", max_length=45),
-                ),
-                (
-                    "external_ip",
-                    models.CharField(blank=True, default="", max_length=45),
-                ),
-                (
-                    "mac_address",
-                    models.CharField(blank=True, default="", max_length=17),
-                ),
+                ("internal_ip", models.CharField(blank=True, default="", max_length=45)),
+                ("external_ip", models.CharField(blank=True, default="", max_length=45)),
+                ("mac_address", models.CharField(blank=True, default="", max_length=17)),
                 ("username", models.CharField(blank=True, default="", max_length=75)),
                 ("analyst", models.CharField(blank=True, default="", max_length=100)),
                 ("notes", models.TextField(blank=True, default="")),
@@ -294,99 +328,5 @@ class Migration(migrations.Migration):
         migrations.AddIndex(
             model_name="filestatushistory",
             index=models.Index(fields=["hostname"], name="idx_fsh_hostname"),
-        ),
-        # -----------------------------------------------------------------
-        # LogRelationship
-        # -----------------------------------------------------------------
-        migrations.CreateModel(
-            name="LogRelationship",
-            fields=[
-                (
-                    "id",
-                    models.BigAutoField(
-                        auto_created=True,
-                        primary_key=True,
-                        serialize=False,
-                        verbose_name="ID",
-                    ),
-                ),
-                ("source_id", models.IntegerField(db_index=True)),
-                ("target_id", models.IntegerField(db_index=True)),
-                (
-                    "type",
-                    models.CharField(
-                        choices=[
-                            ("parent_child", "Parent-Child"),
-                            ("linked", "Linked"),
-                            ("dependency", "Dependency"),
-                            ("correlation", "Correlation"),
-                        ],
-                        max_length=50,
-                    ),
-                ),
-                (
-                    "relationship",
-                    models.CharField(blank=True, default="", max_length=100),
-                ),
-                ("created_at", models.DateTimeField(auto_now_add=True)),
-                (
-                    "created_by",
-                    models.CharField(blank=True, default="", max_length=100),
-                ),
-                ("notes", models.TextField(blank=True, default="")),
-            ],
-            options={
-                "db_table": "log_relationships",
-            },
-        ),
-        migrations.AddIndex(
-            model_name="logrelationship",
-            index=models.Index(
-                fields=["source_id", "target_id"], name="idx_lr_src_tgt"
-            ),
-        ),
-        migrations.AddIndex(
-            model_name="logrelationship",
-            index=models.Index(fields=["type"], name="idx_lr_type"),
-        ),
-        # -----------------------------------------------------------------
-        # TagRelationship
-        # -----------------------------------------------------------------
-        migrations.CreateModel(
-            name="TagRelationship",
-            fields=[
-                (
-                    "id",
-                    models.BigAutoField(
-                        auto_created=True,
-                        primary_key=True,
-                        serialize=False,
-                        verbose_name="ID",
-                    ),
-                ),
-                ("source_tag_id", models.IntegerField(db_index=True)),
-                ("target_tag_id", models.IntegerField(db_index=True)),
-                ("cooccurrence_count", models.IntegerField(default=1)),
-                ("sequence_count", models.IntegerField(default=0)),
-                ("correlation_strength", models.FloatField(default=0.0)),
-                ("first_seen", models.DateTimeField(auto_now_add=True)),
-                ("last_seen", models.DateTimeField(auto_now=True)),
-                ("metadata", models.JSONField(blank=True, default=dict)),
-            ],
-            options={
-                "db_table": "tag_relationships",
-            },
-        ),
-        migrations.AddIndex(
-            model_name="tagrelationship",
-            index=models.Index(
-                fields=["source_tag_id", "target_tag_id"], name="idx_tr_src_tgt"
-            ),
-        ),
-        migrations.AddIndex(
-            model_name="tagrelationship",
-            index=models.Index(
-                fields=["correlation_strength"], name="idx_tr_corr"
-            ),
         ),
     ]

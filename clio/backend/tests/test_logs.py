@@ -1,5 +1,4 @@
 import pytest
-from unittest.mock import patch
 from django.contrib import admin
 from django.db import models
 
@@ -10,8 +9,7 @@ from logs.admin import LogAdmin
 
 @pytest.mark.django_db
 class TestLogServices:
-    @patch("logs.signals.notify_relation_service.delay")
-    def test_toggle_unlock_does_not_crash(self, mock_notify, make_log):
+    def test_toggle_unlock_does_not_crash(self, make_log):
         """Unlocking must set locked_by='' not None (catches regression)."""
         log = make_log(locked=True, locked_by="analyst1")
         result = toggle_lock(log, "analyst1", is_admin=False)
