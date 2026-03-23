@@ -99,22 +99,6 @@ class Migration(migrations.Migration):
             model_name="relation",
             index=models.Index(fields=["last_seen"], name="idx_rel_last_seen"),
         ),
-        migrations.AddIndex(
-            model_name="relation",
-            index=models.Index(
-                fields=["operation_tags"],
-                name="idx_rel_operation_tags",
-                opclasses=["gin__int_ops"],
-            ),
-        ),
-        migrations.AddIndex(
-            model_name="relation",
-            index=models.Index(
-                fields=["source_log_ids"],
-                name="idx_rel_source_log_ids",
-                opclasses=["gin__int_ops"],
-            ),
-        ),
         # -----------------------------------------------------------------
         # LogRelationship
         # -----------------------------------------------------------------
