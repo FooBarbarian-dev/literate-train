@@ -30,8 +30,8 @@ services:
         limits:
           cpus: '1.0'
           memory: 1G
-    expose:
-      - "3001"
+    ports:
+      - 3001:3001
     volumes:
       - evidence_files:/app/evidence
       - ./backend/data:/app/data

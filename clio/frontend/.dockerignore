@@ -1,0 +1,13 @@
+# Git
+.git/
+**/.git/
+
+# Node dependencies — reinstalled during build
+node_modules/
+
+# Build output
+dist/
+
+# Docs
+*.md
+.gitignore
