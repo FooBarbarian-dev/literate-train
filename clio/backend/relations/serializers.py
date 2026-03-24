@@ -47,7 +47,7 @@ class FileStatusSerializer(serializers.ModelSerializer):
 
 
 class FileStatusUpsertSerializer(serializers.ModelSerializer):
-    """Serializer for the upsert action. filename, hostname, and internal_ip are required."""
+    """Serializer for the upsert action. filename is required; hostname and internal_ip default to empty string."""
 
     class Meta:
         model = FileStatus
@@ -55,8 +55,6 @@ class FileStatusUpsertSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "first_seen", "last_seen")
         extra_kwargs = {
             "filename": {"required": True},
-            "hostname": {"required": True},
-            "internal_ip": {"required": True},
         }
 
 
