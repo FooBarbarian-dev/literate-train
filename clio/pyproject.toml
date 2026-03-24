@@ -1,0 +1,108 @@
+[build-system]
+requires = ["setuptools>=75.0", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "clio"
+version = "0.1.0"
+description = "Red team activity logging, tracking, and analysis platform"
+# readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+authors = [{ name = "Clio Contributors" }]
+
+dependencies = [
+    "Django>=5.2,<5.3",
+    "django-environ>=0.11",
+    "djangorestframework>=3.15",
+    "drf-spectacular>=0.27",
+    "django-filter>=24.0",
+    "django-redis>=5.4",
+    "django-cors-headers>=4.3",
+    "redis>=5.0",
+    "psycopg[binary,pool]>=3.1",
+    "gunicorn>=22.0",
+    "uvicorn>=0.30",
+    "httpx>=0.27",
+    "cryptography>=42.0",
+    "PyJWT>=2.8",
+    "passlib>=1.7",
+    "whitenoise>=6.5",
+    "celery>=5.3",
+]
+
+[project.optional-dependencies]
+rag = [
+    "django-ai-assistant>=0.3.0",
+    "langchain>=0.2",
+    "langchain-openai>=0.1",
+    "langchain-community>=0.2",
+    "langchain-core>=0.2",
+    "chromadb>=0.5",
+    "sentence-transformers>=3.0",
+]
+test = [
+    "pytest>=8.0",
+    "pytest-django>=4.8",
+    "coverage>=7.4",
+]
+lint = [
+    "pylint>=3.0",
+    "pylint-django>=2.5",
+    "ruff>=0.9",
+]
+dev = [
+    "clio[rag,test,lint]",
+    "bump-my-version>=0.30",
+    "django-debug-toolbar>=4.3",
+    "ipython>=8.0",
+]
+
+[project.scripts]
+clio-env = "generate_env.__main__:main"
+clio-manage = "backend.cli:manage"
+
+[tool.setuptools.packages.find]
+where = [".", "backend"]
+exclude = ["tests*", "frontend*"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "backend.settings.test"
+python_files = "tests/test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+testpaths = ["backend/tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["backend", "generate_env"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.coverage.run]
+source = ["backend"]
+omit = ["*/migrations/*", "*/tests/*", "*/settings/*", "manage.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+
+[tool.bumpversion]
+current_version = "0.1.0"
+commit = true
+tag = true
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[tool.pylint.main]
+load-plugins = ["pylint_django"]
+django-settings-module = "backend.settings.development"
+
+[tool.pylint."messages control"]
+disable = ["C0114", "C0115", "C0116", "R0903"]
