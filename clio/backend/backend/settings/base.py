@@ -65,19 +65,19 @@ INSTALLED_APPS = [
     # Third-party: AI assistant
     "django_ai_assistant",
     # Project apps
-    "threat_intel",
-    "accounts",
-    "logs",
-    "tags",
-    "operations",
-    "evidence",
-    "api_keys",
-    "ingest",
-    "export",
-    "sessions_mgmt",
-    "templates_mgmt",
-    "audit",
-    "relations",
+    "threat_intel.apps.ThreatIntelConfig",
+    "accounts.apps.AccountsConfig",
+    "logs.apps.LogsConfig",
+    "tags.apps.TagsConfig",
+    "operations.apps.OperationsConfig",
+    "evidence.apps.EvidenceConfig",
+    "api_keys.apps.ApiKeysConfig",
+    "ingest.apps.IngestConfig",
+    "export.apps.ExportConfig",
+    "sessions_mgmt.apps.SessionsMgmtConfig",
+    "templates_mgmt.apps.TemplatesMgmtConfig",
+    "audit.apps.AuditConfig",
+    "relations.apps.RelationsConfig",
 ]
 
 MIDDLEWARE = [

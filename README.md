@@ -15,12 +15,12 @@ A platform for logging, tracking, and analysing red team activities with relatio
 |---|---|---|
 | `frontend` | React app (Vite dev server + proxy) | 3000 |
 | `backend` | Django REST API | internal |
-| `relation-service` | Relationship microservice | internal |
+| `celery_worker` | Async task worker (Celery) | internal |
 | `redis` | Cache / Celery broker | internal |
 | `db` | PostgreSQL | internal |
 
-The Vite dev server proxies `/api` → `backend:3001` and `/relation-service` →
-`relation-service:3002`, so no separate reverse proxy is needed.
+The Vite dev server proxies `/api` → `backend:3001`, so no separate reverse
+proxy is needed.
 
 ## Quick Start
 
@@ -47,9 +47,9 @@ package in editable mode with all dev dependencies.
 clio-env
 ```
 
-This writes `clio/.env`, `clio/backend/.env`, and `clio/relation_service/.env`
-with random passwords and secrets. That's all the setup needed — no
-certificates, no manual secret editing.
+This writes `clio/.env` and `clio/backend/.env` with random passwords and
+secrets. That's all the setup needed — no certificates, no manual secret
+editing.
 
 > **Security shortcut**: The generated passwords are printed to the terminal
 > and stored in plaintext `.env` files. The admin and user passwords are in
