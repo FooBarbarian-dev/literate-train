@@ -2,7 +2,8 @@ FROM node:22-alpine
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm install
-COPY . .
+COPY index.html vite.config.js ./
+COPY src/ ./src/
 EXPOSE 3000
 # NOTE (PoC): Running Vite dev server instead of a production build.
 # The dev server's built-in proxy (vite.config.js) routes /api -> backend
