@@ -60,6 +60,12 @@ def login_view(request):
 
     token, payload = issue_token(auth_result["username"], auth_result["role"])
 
+    # Issue a fresh CSRF token on every login so any stale token from a
+    # previous session is replaced.  The value is also returned in the
+    # response body so the frontend can store it and send it as the
+    # X-CSRF-Token header on subsequent requests.
+    csrf_token = secrets.token_hex(32)
+
     response = Response({
         "message": "Login successful",
         "user": {
@@ -67,15 +73,17 @@ def login_view(request):
             "role": auth_result["role"],
         },
         "requiresPasswordChange": auth_result["requiresPasswordChange"],
+        "csrfToken": csrf_token,
     })
 
     secure_cookie = not django_settings.DEBUG
+    samesite = "Lax" if not secure_cookie else "Strict"
     response.set_cookie(
         "auth_token",
         token,
         httponly=True,
         secure=secure_cookie,
-        samesite="Lax" if not secure_cookie else "Strict",
+        samesite=samesite,
         max_age=8 * 3600,
     )
     response.set_cookie(
@@ -83,8 +91,16 @@ def login_view(request):
         token,
         httponly=True,
         secure=secure_cookie,
-        samesite="Lax" if not secure_cookie else "Strict",
+        samesite=samesite,
         max_age=8 * 3600,
+    )
+    response.set_cookie(
+        "_csrf",
+        csrf_token,
+        httponly=True,
+        secure=secure_cookie,
+        samesite=samesite,
+        max_age=15 * 60,
     )
 
     return response
@@ -103,11 +119,13 @@ def logout_view(request):
     if user and hasattr(user, "jti") and hasattr(user, "username"):
         revoke_token(user.jti, user.username)
 
-    # Always clear cookies, even if the token was already invalid
+    # Always clear cookies, even if the token was already invalid.
+    # Pass the matching samesite attribute so browsers reliably remove them.
     response = Response({"message": "Logged out successfully"})
-    response.delete_cookie("auth_token")
-    response.delete_cookie("token")
-    response.delete_cookie("_csrf")
+    samesite = "Lax" if django_settings.DEBUG else "Strict"
+    response.delete_cookie("auth_token", samesite=samesite)
+    response.delete_cookie("token", samesite=samesite)
+    response.delete_cookie("_csrf", samesite=samesite)
     return response
 
 
@@ -158,13 +176,16 @@ def change_password_view(request):
 def verify_view(request):
     user = request.user
     if not user or not getattr(user, "is_authenticated", False) or not hasattr(user, "role"):
-        # Clear stale auth cookies so the browser stops sending them
+        # Clear stale auth and CSRF cookies so the browser stops sending them.
+        # Pass the matching samesite attribute so browsers reliably remove them.
+        samesite = "Lax" if django_settings.DEBUG else "Strict"
         response = Response(
             {"authenticated": False},
             status=status.HTTP_401_UNAUTHORIZED,
         )
-        response.delete_cookie("auth_token")
-        response.delete_cookie("token")
+        response.delete_cookie("auth_token", samesite=samesite)
+        response.delete_cookie("token", samesite=samesite)
+        response.delete_cookie("_csrf", samesite=samesite)
         return response
 
     return Response({
