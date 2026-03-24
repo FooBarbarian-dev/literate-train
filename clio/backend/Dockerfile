@@ -6,15 +6,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc libpq-dev curl && \
     rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy dependency manifest and only the source directories we need.
+# pyproject.toml lives at the clio/ root (build context), so it is
+# now accessible directly here — no requirements.txt needed.
+COPY pyproject.toml .
+COPY backend/ ./backend/
+COPY generate_env/ ./generate_env/
 
-COPY . .
+# Install core + rag extras from pyproject.toml; skip test/lint/dev deps.
+RUN pip install --no-cache-dir ".[rag]"
 
-RUN mkdir -p /app/evidence /app/data /app/exports /app/data/archives /app/data/audit
-
-RUN chmod +x /app/entrypoint.sh
+# manage.py lives inside backend/ but the entrypoint calls it from WORKDIR.
+RUN cp /app/backend/manage.py /app/manage.py && \
+    mkdir -p /app/evidence /app/data /app/exports /app/data/archives /app/data/audit && \
+    chmod +x /app/backend/entrypoint.sh
 
 EXPOSE 3001
 
-CMD ["/app/entrypoint.sh"]
+CMD ["/app/backend/entrypoint.sh"]
