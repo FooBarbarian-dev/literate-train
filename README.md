@@ -151,6 +151,203 @@ docker compose down -v
 | Static files / CSS broken | `docker compose exec backend python manage.py collectstatic --noinput` |
 | Demo data missing | `docker compose exec backend python manage.py seed_demo_data` |
 
+## CVE & ATT&CK Chat (RAG Assistant)
+
+The platform includes a cybersecurity chat assistant powered by a local vLLM
+instance.  It combines two retrieval sources:
+
+- **Vector store** — MITRE ATT&CK techniques and NVD CVE records, embedded and
+  stored locally in Chroma.
+- **Live Django DB** — runtime queries against the application's own data (logs,
+  operations, tags, etc.) so the assistant can reference current activity.
+
+No OpenAI account or internet-facing AI service is required.
+
+---
+
+### Step 1 — Point at your vLLM instance
+
+Add the following variables to `clio/backend/.env` (create the file if it does
+not exist; it is read automatically by Django):
+
+```dotenv
+# URL of your vLLM OpenAI-compatible server
+VLLM_BASE_URL=http://localhost:8000/v1
+
+# The model name exactly as vLLM reports it (check `GET /v1/models`)
+VLLM_MODEL_NAME=meta-llama/Llama-3.1-8B-Instruct
+
+# Leave as-is unless your vLLM instance requires a real key
+VLLM_API_KEY=not-needed
+```
+
+To find the right `VLLM_MODEL_NAME`:
+
+```bash
+curl -s http://localhost:8000/v1/models | python -m json.tool
+# Look for the "id" field under "data"
+```
+
+---
+
+### Step 2 — Choose an embedding backend
+
+The assistant embeds threat data for semantic search.  Two backends are
+supported:
+
+| Setting value | What it does | When to use |
+|---|---|---|
+| `auto` (default) | Probes vLLM for an embedding model; falls back to local sentence-transformers | Best for most setups |
+| `vllm` | Uses vLLM's `/v1/embeddings` endpoint; fails if no embed model is loaded | You serve a dedicated embed model alongside the chat model |
+| `sentence-transformers` | Downloads and runs `BAAI/bge-small-en-v1.5` locally (~130 MB) | No embed model on vLLM, or you want reproducible offline embeddings |
+
+```dotenv
+# In backend/.env — one of: auto | vllm | sentence-transformers
+THREAT_RAG_EMBEDDING_BACKEND=auto
+```
+
+If you serve a separate embedding model on vLLM (e.g. `BAAI/bge-small-en-v1.5`
+via `--model`), set `THREAT_RAG_EMBEDDING_BACKEND=vllm` and vLLM will be used
+for both chat and embeddings.
+
+---
+
+### Step 3 — (Optional) NVD API key
+
+Without an API key the NVD downloader sleeps 6 seconds between pages (NVD's
+unauthenticated rate limit).  A free key raises the limit to ~50 req/30 s,
+making a full download roughly 10× faster.
+
+Register at: https://nvd.nist.gov/developers/request-an-api-key
+
+```dotenv
+NVD_API_KEY=your-nvd-api-key-here
+```
+
+---
+
+### Step 4 — Install dependencies
+
+```bash
+cd clio/backend
+pip install -r requirements.txt
+```
+
+Key additions: `django-ai-assistant`, `langchain-openai`, `langchain-community`,
+`chromadb`, `sentence-transformers`.
+
+---
+
+### Step 5 — Run the ingestion command
+
+```bash
+cd clio/backend
+python manage.py ingest_threat_data
+```
+
+This will:
+
+1. Download the three MITRE ATT&CK bundles (enterprise, mobile, ICS) and cache
+   them under `threat_data/mitre/`.  Re-runs use `If-Modified-Since` headers to
+   skip unchanged files.
+2. Paginate through the NVD CVE API and cache pages under `threat_data/nvd/`.
+   Subsequent runs only fetch records modified since the last sync.
+3. Normalise everything into `threat_data/mitre_techniques.jsonl` and
+   `threat_data/nvd_cves.jsonl`.
+4. Embed and upsert all records into the Chroma vector store at
+   `threat_data/chroma_db/`.
+
+**Flags:**
+
+```bash
+# Download data only — skip building the vector index
+python manage.py ingest_threat_data --skip-index
+
+# Rebuild the index from existing JSONL — skip re-downloading
+python manage.py ingest_threat_data --skip-download
+```
+
+Expected summary output:
+
+```
+Written: 919 techniques, 248000 CVEs.
+Upserted 1843 MITRE chunks into 'mitre_techniques' collection.
+Upserted 312000 CVE chunks into 'nvd_cves' collection.
+Vector store built successfully.
+```
+
+---
+
+### Step 6 — Start the server and use the chat
+
+```bash
+python manage.py runserver
+```
+
+| Interface | URL | Description |
+|---|---|---|
+| Chat UI | http://localhost:8000/chat/ | Standalone HTML chat page (no login required) |
+| Chat API | `POST /api/chat/` | JSON endpoint for programmatic access |
+
+**Chat UI**: open in a browser, type a question, press Enter or Send.
+
+**Chat API:**
+
+```bash
+# Start a new conversation
+curl -s -X POST http://localhost:8000/api/chat/ \
+  -H "Content-Type: application/json" \
+  -d '{"message": "What ATT&CK technique covers LSASS credential dumping?", "thread_id": null}' \
+  | python -m json.tool
+
+# Continue the same conversation (pass the returned thread_id)
+curl -s -X POST http://localhost:8000/api/chat/ \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Which CVEs are commonly exploited with that technique?", "thread_id": "UUID-FROM-PREVIOUS-RESPONSE"}' \
+  | python -m json.tool
+```
+
+**Example response:**
+
+```json
+{
+  "reply": "LSASS credential dumping maps to ATT&CK technique T1003.001 (OS Credential Dumping: LSASS Memory). CVE-2021-36934 (HiveNightmare/SeriousSAM, CVSS 7.8) allows low-privileged users to read the SAM database...",
+  "thread_id": "3f8a2b1c-d4e5-..."
+}
+```
+
+---
+
+### Querying application data
+
+The assistant can also search the live database when your question references
+operation or log data.  It uses a `query_django_db` tool internally.  Example:
+
+```
+"Show me logs containing powershell from the last operation"
+```
+
+Available models for DB search: `Log`, `Tag`, `Operation`, `EvidenceFile`,
+`LogTemplate`, `Relation`, `FileStatus`, `LogRelationship`, `TagRelationship`.
+
+Sensitive fields (`*password*`, `*token*`, `*secret*`, `*key*`, `*hash*`) are
+stripped from all results unconditionally.
+
+---
+
+### Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| `No vLLM model name configured` (HTTP 503) | Set `VLLM_MODEL_NAME` in `backend/.env` to the model id reported by `GET /v1/models` |
+| `RAG retriever unavailable` in logs | Run `python manage.py ingest_threat_data` to build the Chroma index |
+| `No embedding model detected at ...` | Set `THREAT_RAG_EMBEDDING_BACKEND=sentence-transformers` in `backend/.env` |
+| NVD download is very slow | Add `NVD_API_KEY` to `backend/.env` to lift the rate limit |
+| MITRE files not updating | Delete `threat_data/mitre/*.json` to force a fresh download |
+| Vector store out of date | Re-run `python manage.py ingest_threat_data` (upsert is idempotent) |
+
+---
+
 ## Production Hardening
 
 > **This section is critical.** The PoC takes numerous shortcuts that are
