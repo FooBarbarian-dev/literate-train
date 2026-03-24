@@ -27,7 +27,8 @@ The Vite dev server proxies `/api` → `backend:3001` and `/relation-service` �
 ### Prerequisites
 
 - Docker and Docker Compose v2+
-- Python 3.9+ (only for `generate_env`; Docker handles everything else)
+- Python 3.12+ (for local development; Docker handles everything else)
+- [Conda](https://docs.conda.io/) or [Mamba](https://mamba.readthedocs.io/) (recommended for local dev)
 
 ### 1. Clone
 
@@ -37,6 +38,14 @@ cd literate-train/clio
 ```
 
 ### 2. Generate env files
+
+Using the installed CLI (see [Local Development](#local-development) below):
+
+```bash
+clio-env
+```
+
+Or without installing the package:
 
 ```bash
 python -m generate_env
@@ -229,12 +238,12 @@ NVD_API_KEY=your-nvd-api-key-here
 ### Step 4 — Install dependencies
 
 ```bash
-cd clio/backend
-pip install -r requirements.txt
+cd clio
+pip install -e ".[rag]"
 ```
 
-Key additions: `django-ai-assistant`, `langchain-openai`, `langchain-community`,
-`chromadb`, `sentence-transformers`.
+This installs the core platform plus the RAG extras (`django-ai-assistant`,
+`langchain-openai`, `langchain-community`, `chromadb`, `sentence-transformers`).
 
 ---
 
@@ -356,6 +365,78 @@ stripped from all results unconditionally.
 | NVD download is very slow | Add `NVD_API_KEY` to `backend/.env` to lift the rate limit |
 | MITRE files not updating | Delete `threat_data/mitre/*.json` to force a fresh download |
 | Vector store out of date | Re-run `python manage.py ingest_threat_data` (upsert is idempotent) |
+
+---
+
+## Local Development
+
+### Conda environment (recommended)
+
+```bash
+cd clio
+conda env create -f environment.yml
+conda activate clio
+```
+
+This creates a `clio` conda environment with Python 3.13, installs the package
+in editable mode with all dev extras (`.[dev]`), and adds standalone tools
+(bump-my-version, coverage, pylint).
+
+### Manual setup (pip only)
+
+```bash
+cd clio
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+```
+
+### Installed CLI commands
+
+Once the package is installed (either via conda or pip), the following commands
+are available:
+
+| Command | Description |
+|---|---|
+| `clio-env` | Generate `.env` files with random secrets for all services |
+| `clio-manage` | Django management commands (equivalent to `python manage.py`) |
+
+Examples:
+
+```bash
+clio-env                              # Generate env files
+clio-manage migrate                   # Run database migrations
+clio-manage seed_demo_data            # Populate demo data
+clio-manage ingest_threat_data        # Download and index threat intel
+clio-manage runserver                 # Start the dev server
+```
+
+### Optional dependency groups
+
+Dependencies are split into optional extras in `pyproject.toml`:
+
+| Extra | What it includes | Install with |
+|---|---|---|
+| `rag` | LangChain, ChromaDB, sentence-transformers | `pip install -e ".[rag]"` |
+| `test` | pytest, pytest-django, coverage | `pip install -e ".[test]"` |
+| `lint` | pylint, pylint-django, ruff | `pip install -e ".[lint]"` |
+| `dev` | All of the above + bump-my-version, debug-toolbar, ipython | `pip install -e ".[dev]"` |
+
+### Running tests
+
+```bash
+cd clio
+pytest                                # run test suite
+coverage run -m pytest && coverage report   # with coverage
+```
+
+### Linting
+
+```bash
+ruff check backend/ generate_env/     # fast linting
+ruff format backend/ generate_env/    # auto-format
+pylint backend/                       # deeper analysis
+```
 
 ---
 
