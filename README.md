@@ -260,12 +260,23 @@ This will:
 **Flags:**
 
 ```bash
-# Download data only — skip building the vector index
-python manage.py ingest_threat_data --skip-index
+# Download only — writes JSONL files but does not build the index.
+# Use this to collect data on a machine that has internet access,
+# then copy the output directory to the air-gapped / production host.
+python manage.py ingest_threat_data --download-only
 
-# Rebuild the index from existing JSONL — skip re-downloading
-python manage.py ingest_threat_data --skip-download
+# Index only — reads JSONL files and builds the Chroma vector store.
+# No network access required; combine with --data-dir (see below).
+python manage.py ingest_threat_data --index-only
+
+# Point at a custom directory for JSONL input (index) or output (download).
+# This lets you download on one machine, copy the folder, and index elsewhere.
+python manage.py ingest_threat_data --index-only --data-dir /path/to/threat_data
+python manage.py ingest_threat_data --download-only --data-dir /mnt/usb/threat_data
 ```
+
+`--download-only` and `--index-only` are mutually exclusive. Omitting both runs
+the full pipeline (download → write JSONL → build index), which is the default.
 
 Expected summary output:
 

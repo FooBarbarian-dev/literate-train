@@ -1,12 +1,20 @@
 """
 Management command to download MITRE ATT&CK and NVD CVE data,
-normalize them into JSONL files, and optionally build the Chroma vector
-store index.
+normalize them into JSONL files, and build the Chroma vector store index.
 
-Usage:
-    python manage.py ingest_threat_data            # download + build index
-    python manage.py ingest_threat_data --skip-index  # download only
-    python manage.py ingest_threat_data --skip-download  # index from existing JSONL
+The two halves of the pipeline can be run independently:
+
+    # Default: download then build index
+    python manage.py ingest_threat_data
+
+    # Download only — writes JSONL to threat_data/ (or --data-dir)
+    python manage.py ingest_threat_data --download-only
+
+    # Index only — reads JSONL from threat_data/ (or --data-dir)
+    python manage.py ingest_threat_data --index-only
+
+    # Index from a custom location (e.g. data copied from another machine)
+    python manage.py ingest_threat_data --index-only --data-dir /mnt/usb/threat_data
 """
 
 from __future__ import annotations
@@ -48,31 +56,60 @@ class Command(BaseCommand):
     NVD_SLEEP_WITH_KEY = 0.6  # seconds between requests (API key present)
 
     def add_arguments(self, parser):
-        parser.add_argument(
-            "--skip-index",
+        # Mutually exclusive mode flags
+        mode = parser.add_mutually_exclusive_group()
+        mode.add_argument(
+            "--download-only",
             action="store_true",
             default=False,
-            help="Download data but skip building the vector store index.",
+            help=(
+                "Download MITRE and NVD data and write JSONL files, "
+                "but do not build the vector store index."
+            ),
+        )
+        mode.add_argument(
+            "--index-only",
+            action="store_true",
+            default=False,
+            help=(
+                "Build the vector store index from existing JSONL files; "
+                "skip all network downloads. "
+                "Use --data-dir to point at a non-default source directory."
+            ),
         )
         parser.add_argument(
-            "--skip-download",
-            action="store_true",
-            default=False,
-            help="Skip downloading data; build index from existing JSONL files.",
+            "--data-dir",
+            default=None,
+            metavar="PATH",
+            help=(
+                "Directory containing (or to receive) mitre_techniques.jsonl and "
+                "nvd_cves.jsonl. "
+                "Defaults to BASE_DIR/threat_data. "
+                "Raw download cache (mitre/ and nvd/ subdirs) is always written "
+                "relative to this directory."
+            ),
         )
 
     def handle(self, *args, **options):
-        build_index = not options["skip_index"]
+        download_only: bool = options["download_only"]
+        index_only: bool = options["index_only"]
 
-        base = Path(settings.BASE_DIR) / "threat_data"
-        base.mkdir(exist_ok=True)
-        (base / "mitre").mkdir(exist_ok=True)
-        (base / "nvd").mkdir(exist_ok=True)
+        # Resolve the working data directory
+        if options["data_dir"]:
+            base = Path(options["data_dir"]).expanduser().resolve()
+        else:
+            base = Path(settings.BASE_DIR) / "threat_data"
+
+        base.mkdir(parents=True, exist_ok=True)
 
         techniques: list[dict] = []
         cves: list[dict] = []
 
-        if not options["skip_download"]:
+        if not index_only:
+            # Download phase — always creates mitre/ and nvd/ subdirs
+            (base / "mitre").mkdir(exist_ok=True)
+            (base / "nvd").mkdir(exist_ok=True)
+
             techniques = self._download_mitre(base)
             cves = self._download_nvd(base)
 
@@ -81,18 +118,20 @@ class Command(BaseCommand):
 
             self.stdout.write(
                 self.style.SUCCESS(
-                    f"Written: {len(techniques)} techniques, {len(cves)} CVEs."
+                    f"Written: {len(techniques)} techniques, {len(cves)} CVEs "
+                    f"→ {base}"
                 )
             )
-        else:
-            self.stdout.write("Skipping download — reading existing JSONL files.")
-            techniques = self._read_jsonl(base / "mitre_techniques.jsonl")
-            cves = self._read_jsonl(base / "nvd_cves.jsonl")
-            self.stdout.write(
-                f"Loaded {len(techniques)} techniques, {len(cves)} CVEs from disk."
-            )
 
-        if build_index:
+        if not download_only:
+            # Index phase — read JSONL from base (may differ from download dir)
+            if index_only:
+                self.stdout.write(f"Reading JSONL from {base} …")
+                techniques = self._read_jsonl(base / "mitre_techniques.jsonl")
+                cves = self._read_jsonl(base / "nvd_cves.jsonl")
+                self.stdout.write(
+                    f"Loaded {len(techniques)} techniques, {len(cves)} CVEs."
+                )
             self._build_index(base, techniques, cves)
 
     # -------------------------------------------------------------------------
