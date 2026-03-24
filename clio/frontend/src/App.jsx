@@ -6,6 +6,7 @@ import LogsPage from './pages/LogsPage'
 import OperationsPage from './pages/OperationsPage'
 import TagsPage from './pages/TagsPage'
 import SettingsPage from './pages/SettingsPage'
+import ChatPage from './pages/ChatPage'
 
 function NavBar() {
   const { user, logout } = useAuth()
@@ -17,6 +18,7 @@ function NavBar() {
     { path: '/logs', label: 'Logs' },
     { path: '/operations', label: 'Operations' },
     { path: '/tags', label: 'Tags' },
+    { path: '/threat-intel', label: 'Threat Intel' },
     { path: '/settings', label: 'Settings' },
   ]
 
@@ -122,6 +124,14 @@ function AppRoutes() {
             element={
               <ProtectedRoute>
                 <SettingsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/threat-intel"
+            element={
+              <ProtectedRoute>
+                <ChatPage />
               </ProtectedRoute>
             }
           />

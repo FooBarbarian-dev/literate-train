@@ -1,35 +1,19 @@
 """
-Chat views for the threat_intel app.
+Chat API view for the threat_intel app.
 
-  GET  /chat/          — serves the standalone chat UI template
-  POST /api/chat/      — JSON endpoint for the AI assistant
+  POST /api/chat/  — JSON endpoint consumed by the React Threat Intel page
 
-The JSON endpoint follows the project's DRF conventions.  Thread IDs are
-UUIDs; pass null / omit to start a new conversation.
+Thread IDs are UUIDs; pass null / omit to start a new conversation.
 """
 
 from __future__ import annotations
 
 import uuid
 
-from django.shortcuts import render
-from django.views import View
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
-
-# ---------------------------------------------------------------------------
-# Template view  (GET /chat/)
-# ---------------------------------------------------------------------------
-
-
-class ChatTemplateView(View):
-    """Render the standalone chat HTML page."""
-
-    def get(self, request, *args, **kwargs):
-        return render(request, "threat_intel/chat.html")
 
 
 # ---------------------------------------------------------------------------
@@ -53,11 +37,10 @@ class ChatAPIView(APIView):
             "thread_id": "uuid-string"
         }
 
-    Authentication: AllowAny for demo purposes.
-    NOTE: Change to IsAuthenticated (or add JWT auth) for production use.
+    Authentication: requires a valid session (JWT auth_token cookie).
     """
 
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request: Request, *args, **kwargs) -> Response:
         message: str = (request.data.get("message") or "").strip()
