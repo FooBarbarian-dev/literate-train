@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import client from '../api/client'
+import client, { setCsrfToken, clearCsrfToken } from '../api/client'
 
 const AuthContext = createContext(null)
 
@@ -13,6 +13,9 @@ export function AuthProvider({ children }) {
       setUser(response.data)
       return true
     } catch {
+      // Stale session — drop any cached CSRF token so the next login
+      // starts with a clean slate.
+      clearCsrfToken()
       setUser(null)
       return false
     } finally {
@@ -26,6 +29,11 @@ export function AuthProvider({ children }) {
 
   const login = async (username, password) => {
     const response = await client.post('/accounts/login/', { username, password })
+    // Store the fresh CSRF token issued by the server on login so it can be
+    // sent as X-CSRF-Token on subsequent mutating requests.
+    if (response.data.csrfToken) {
+      setCsrfToken(response.data.csrfToken)
+    }
     setUser(response.data.user || response.data)
     return response.data
   }
@@ -36,6 +44,8 @@ export function AuthProvider({ children }) {
     } catch {
       // ignore logout errors
     }
+    // Clear the in-memory CSRF token so a subsequent login gets a fresh one.
+    clearCsrfToken()
     setUser(null)
   }
 

@@ -26,3 +26,10 @@ CORS_ALLOW_CREDENTIALS = True
 # Celery - run tasks synchronously in tests
 CELERY_TASK_ALWAYS_EAGER = True
 CELERY_TASK_EAGER_PROPAGATES = True
+
+# Use a dummy in-memory cache so tests don't need a running Redis instance
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    }
+}

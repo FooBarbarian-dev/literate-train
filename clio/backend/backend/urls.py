@@ -51,4 +51,6 @@ urlpatterns = [
     path("api/templates/", include("templates_mgmt.urls")),
     path("api/audit/", include("audit.urls")),
     path("api/relations/", include("relations.urls")),
+    # Threat Intel: chat UI + API
+    path("", include("threat_intel.urls")),
 ]
