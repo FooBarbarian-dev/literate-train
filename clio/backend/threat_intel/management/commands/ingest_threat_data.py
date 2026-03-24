@@ -132,7 +132,73 @@ class Command(BaseCommand):
                 self.stdout.write(
                     f"Loaded {len(techniques)} techniques, {len(cves)} CVEs."
                 )
+            self._upsert_db(techniques, cves)
             self._build_index(base, techniques, cves)
+
+    # -------------------------------------------------------------------------
+    # Database upsert
+    # -------------------------------------------------------------------------
+
+    def _upsert_db(
+        self, techniques: list[dict], cves: list[dict]
+    ) -> None:
+        from datetime import datetime, timezone as tz
+
+        from threat_intel.models import MitreTechnique, NvdCve
+
+        self.stdout.write("Upserting threat data into the database…")
+
+        # ── MITRE techniques ──────────────────────────────────────────────────
+        mitre_objects = [
+            MitreTechnique(
+                stix_id=t["id"],
+                external_id=t["external_id"],
+                name=t["name"],
+                description=t.get("description", ""),
+                domain=t["domain"],
+                tactics=", ".join(t.get("tactic", [])),
+                platforms=", ".join(t.get("platforms", [])),
+            )
+            for t in techniques
+            if t.get("id")
+        ]
+        MitreTechnique.objects.bulk_create(
+            mitre_objects,
+            update_conflicts=True,
+            unique_fields=["stix_id"],
+            update_fields=["external_id", "name", "description",
+                           "domain", "tactics", "platforms", "ingested_at"],
+        )
+        self.stdout.write(f"  MITRE: {len(mitre_objects)} techniques upserted.")
+
+        # ── NVD CVEs ──────────────────────────────────────────────────────────
+        def _parse_dt(value: str):
+            if not value:
+                return None
+            try:
+                return datetime.fromisoformat(value.rstrip("Z")).replace(tzinfo=tz.utc)
+            except ValueError:
+                return None
+
+        cve_objects = [
+            NvdCve(
+                cve_id=c["id"],
+                description=c.get("description", ""),
+                cvss_score=c.get("cvss_score"),
+                published_date=_parse_dt(c.get("published_date", "")),
+                affected_products="\n".join(c.get("affected_products", [])),
+            )
+            for c in cves
+            if c.get("id")
+        ]
+        NvdCve.objects.bulk_create(
+            cve_objects,
+            update_conflicts=True,
+            unique_fields=["cve_id"],
+            update_fields=["description", "cvss_score", "published_date",
+                           "affected_products", "ingested_at"],
+        )
+        self.stdout.write(f"  NVD: {len(cve_objects)} CVEs upserted.")
 
     # -------------------------------------------------------------------------
     # MITRE ATT&CK
