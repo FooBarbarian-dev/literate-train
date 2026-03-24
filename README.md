@@ -27,19 +27,24 @@ The Vite dev server proxies `/api` → `backend:3001` and `/relation-service` �
 ### Prerequisites
 
 - Docker and Docker Compose v2+
-- Python 3.9+ (only for `generate_env`; Docker handles everything else)
+- [Conda](https://docs.conda.io/) or [Mamba](https://mamba.readthedocs.io/)
 
-### 1. Clone
+### 1. Clone and create the environment
 
 ```bash
 git clone <repository-url>
 cd literate-train/clio
+conda env create -f environment.yml
+conda activate clio
 ```
+
+This creates a `clio` conda environment with Python 3.13 and installs the
+package in editable mode with all dev dependencies.
 
 ### 2. Generate env files
 
 ```bash
-python -m generate_env
+clio-env
 ```
 
 This writes `clio/.env`, `clio/backend/.env`, and `clio/relation_service/.env`
@@ -146,7 +151,7 @@ docker compose down -v
 |---|---|
 | Port 3000 already in use | `docker compose ps` or change the port mapping in compose.yaml |
 | Backend unhealthy | `docker compose logs backend` — the entrypoint waits for the DB, so check the `db` logs too |
-| Redis auth error | Make sure `backend/.env` has `REDIS_URL=redis://:PASSWORD@redis:6379/0` matching the password in `.env` — re-run `python -m generate_env` to regenerate |
+| Redis auth error | Make sure `backend/.env` has `REDIS_URL=redis://:PASSWORD@redis:6379/0` matching the password in `.env` — re-run `clio-env` to regenerate |
 | Database not ready | `docker compose logs db` — the entrypoint retries automatically |
 | Static files / CSS broken | `docker compose exec backend python manage.py collectstatic --noinput` |
 | Demo data missing | `docker compose exec backend python manage.py seed_demo_data` |
@@ -228,21 +233,15 @@ NVD_API_KEY=your-nvd-api-key-here
 
 ### Step 4 — Install dependencies
 
-```bash
-cd clio/backend
-pip install -r requirements.txt
-```
-
-Key additions: `django-ai-assistant`, `langchain-openai`, `langchain-community`,
-`chromadb`, `sentence-transformers`.
+The conda environment from the [Quick Start](#quick-start) already includes the
+RAG extras as part of the `dev` group — no additional install needed.
 
 ---
 
 ### Step 5 — Run the ingestion command
 
 ```bash
-cd clio/backend
-python manage.py ingest_threat_data
+clio-manage ingest_threat_data
 ```
 
 This will:
@@ -263,16 +262,16 @@ This will:
 # Download only — writes JSONL files but does not build the index.
 # Use this to collect data on a machine that has internet access,
 # then copy the output directory to the air-gapped / production host.
-python manage.py ingest_threat_data --download-only
+clio-manage ingest_threat_data --download-only
 
 # Index only — reads JSONL files and builds the Chroma vector store.
 # No network access required; combine with --data-dir (see below).
-python manage.py ingest_threat_data --index-only
+clio-manage ingest_threat_data --index-only
 
 # Point at a custom directory for JSONL input (index) or output (download).
 # This lets you download on one machine, copy the folder, and index elsewhere.
-python manage.py ingest_threat_data --index-only --data-dir /path/to/threat_data
-python manage.py ingest_threat_data --download-only --data-dir /mnt/usb/threat_data
+clio-manage ingest_threat_data --index-only --data-dir /path/to/threat_data
+clio-manage ingest_threat_data --download-only --data-dir /mnt/usb/threat_data
 ```
 
 `--download-only` and `--index-only` are mutually exclusive. Omitting both runs
@@ -292,7 +291,7 @@ Vector store built successfully.
 ### Step 6 — Start the server and use the chat
 
 ```bash
-python manage.py runserver
+clio-manage runserver
 ```
 
 | Interface | URL | Description |
@@ -351,11 +350,74 @@ stripped from all results unconditionally.
 | Symptom | Fix |
 |---|---|
 | `No vLLM model name configured` (HTTP 503) | Set `VLLM_MODEL_NAME` in `backend/.env` to the model id reported by `GET /v1/models` |
-| `RAG retriever unavailable` in logs | Run `python manage.py ingest_threat_data` to build the Chroma index |
+| `RAG retriever unavailable` in logs | Run `clio-manage ingest_threat_data` to build the Chroma index |
 | `No embedding model detected at ...` | Set `THREAT_RAG_EMBEDDING_BACKEND=sentence-transformers` in `backend/.env` |
 | NVD download is very slow | Add `NVD_API_KEY` to `backend/.env` to lift the rate limit |
 | MITRE files not updating | Delete `threat_data/mitre/*.json` to force a fresh download |
-| Vector store out of date | Re-run `python manage.py ingest_threat_data` (upsert is idempotent) |
+| Vector store out of date | Re-run `clio-manage ingest_threat_data` (upsert is idempotent) |
+
+---
+
+## Local Development
+
+Set up your environment with the conda env file from the [Quick Start](#quick-start):
+
+```bash
+conda env create -f environment.yml   # first time
+conda env update -f environment.yml   # after environment.yml changes
+conda activate clio
+```
+
+This installs the package in editable mode with all dev dependencies
+(`.[dev]`), which pulls in every optional group (rag, test, lint) plus
+tools like bump-my-version, django-debug-toolbar, and ipython.
+
+### Installed CLI commands
+
+Once the environment is active, the following commands are available:
+
+| Command | Description |
+|---|---|
+| `clio-env` | Generate `.env` files with random secrets for all services |
+| `clio-manage` | Django management commands (equivalent to `python manage.py`) |
+
+Examples:
+
+```bash
+clio-env                              # Generate env files
+clio-manage migrate                   # Run database migrations
+clio-manage seed_demo_data            # Populate demo data
+clio-manage ingest_threat_data        # Download and index threat intel
+clio-manage runserver                 # Start the dev server
+```
+
+### Optional dependency groups
+
+Dependencies are split into optional extras in `pyproject.toml`.  The conda
+`environment.yml` installs `.[dev]` which includes everything, but the groups
+can also be installed individually inside Docker or CI:
+
+| Extra | What it includes |
+|---|---|
+| `rag` | LangChain, ChromaDB, sentence-transformers |
+| `test` | pytest, pytest-django, coverage |
+| `lint` | pylint, pylint-django, ruff |
+| `dev` | All of the above + bump-my-version, debug-toolbar, ipython |
+
+### Running tests
+
+```bash
+pytest                                # run test suite
+coverage run -m pytest && coverage report   # with coverage
+```
+
+### Linting
+
+```bash
+ruff check backend/ generate_env/     # fast linting
+ruff format backend/ generate_env/    # auto-format
+pylint backend/                       # deeper analysis
+```
 
 ---
 
