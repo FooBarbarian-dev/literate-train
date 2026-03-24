@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=75.0", "setuptools-scm>=8"]
+requires = ["setuptools>=75.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -62,9 +62,62 @@ dev = [
 clio-env = "generate_env.__main__:main"
 clio-manage = "backend.cli:manage"
 
-[tool.setuptools.packages.find]
-where = [".", "backend"]
-exclude = ["tests*", "frontend*"]
+[tool.setuptools]
+packages = [
+    "generate_env",
+    "accounts", "accounts.management", "accounts.management.commands", "accounts.migrations",
+    "api_keys", "api_keys.migrations",
+    "audit", "audit.migrations",
+    "backend", "backend.settings",
+    "common",
+    "evidence", "evidence.migrations",
+    "export", "export.migrations",
+    "ingest", "ingest.migrations",
+    "logs", "logs.migrations",
+    "operations", "operations.management", "operations.management.commands", "operations.migrations",
+    "relations", "relations.migrations",
+    "sessions_mgmt", "sessions_mgmt.migrations",
+    "tags", "tags.migrations",
+    "templates_mgmt", "templates_mgmt.migrations",
+    "threat_intel", "threat_intel.management", "threat_intel.management.commands",
+]
+
+[tool.setuptools.package-dir]
+"" = "."
+accounts = "backend/accounts"
+"accounts.management" = "backend/accounts/management"
+"accounts.management.commands" = "backend/accounts/management/commands"
+"accounts.migrations" = "backend/accounts/migrations"
+api_keys = "backend/api_keys"
+"api_keys.migrations" = "backend/api_keys/migrations"
+audit = "backend/audit"
+"audit.migrations" = "backend/audit/migrations"
+backend = "backend/backend"
+"backend.settings" = "backend/backend/settings"
+common = "backend/common"
+evidence = "backend/evidence"
+"evidence.migrations" = "backend/evidence/migrations"
+export = "backend/export"
+"export.migrations" = "backend/export/migrations"
+ingest = "backend/ingest"
+"ingest.migrations" = "backend/ingest/migrations"
+logs = "backend/logs"
+"logs.migrations" = "backend/logs/migrations"
+operations = "backend/operations"
+"operations.management" = "backend/operations/management"
+"operations.management.commands" = "backend/operations/management/commands"
+"operations.migrations" = "backend/operations/migrations"
+relations = "backend/relations"
+"relations.migrations" = "backend/relations/migrations"
+sessions_mgmt = "backend/sessions_mgmt"
+"sessions_mgmt.migrations" = "backend/sessions_mgmt/migrations"
+tags = "backend/tags"
+"tags.migrations" = "backend/tags/migrations"
+templates_mgmt = "backend/templates_mgmt"
+"templates_mgmt.migrations" = "backend/templates_mgmt/migrations"
+threat_intel = "backend/threat_intel"
+"threat_intel.management" = "backend/threat_intel/management"
+"threat_intel.management.commands" = "backend/threat_intel/management/commands"
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "backend.settings.test"
