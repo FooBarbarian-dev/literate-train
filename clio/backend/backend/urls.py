@@ -26,16 +26,20 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     # Top-level health check (used by Docker healthcheck)
     path("api/health/", health_check, name="health-check"),
-    # API schema & docs (public, no auth required)
-    path("api/schema/", SpectacularAPIView.as_view(permission_classes=[AllowAny]), name="schema"),
+    # API schema & docs (public, no auth or throttle required)
+    path(
+        "api/schema/",
+        SpectacularAPIView.as_view(permission_classes=[AllowAny], throttle_classes=[]),
+        name="schema",
+    ),
     path(
         "api/schema/swagger-ui/",
-        SpectacularSwaggerView.as_view(url_name="schema", permission_classes=[AllowAny]),
+        SpectacularSwaggerView.as_view(url_name="schema", permission_classes=[AllowAny], throttle_classes=[]),
         name="swagger-ui",
     ),
     path(
         "api/schema/redoc/",
-        SpectacularRedocView.as_view(url_name="schema", permission_classes=[AllowAny]),
+        SpectacularRedocView.as_view(url_name="schema", permission_classes=[AllowAny], throttle_classes=[]),
         name="redoc",
     ),
     # App URLs
