@@ -32,10 +32,16 @@ def _write_file(path: Path, content: str) -> None:
 def write_env_files(base_dir: Path) -> None:
     """Generate and write all .env files for the Clio platform.
 
+    *base_dir* is the ``clio/`` project directory (one level inside the repo
+    root where ``compose.yaml`` now lives).
+
     Files created:
-        <base_dir>/.env               - root compose env (variable substitution)
+        <base_dir>/../.env             - repo-root compose env (variable substitution)
         <base_dir>/backend/.env        - backend service env
     """
+    # compose.yaml lives one level above base_dir (at the repo root)
+    compose_dir = base_dir.parent
+
     # --- Generate secrets ---
     django_secret_key = _random_hex(50)
     jwt_secret = _random_hex(32)
@@ -53,7 +59,7 @@ POSTGRES_PASSWORD={postgres_password}
 POSTGRES_DB=redteamlogger
 REDIS_PASSWORD={redis_password}
 """
-    _write_file(base_dir / ".env", root_env)
+    _write_file(compose_dir / ".env", root_env)
 
     # --- Backend .env ---
     # REDIS_URL must embed the password so Django cache and Celery can connect.
@@ -76,5 +82,5 @@ USER_PASSWORD={user_password}
     _write_file(base_dir / "backend" / ".env", backend_env)
 
     print(f"  Environment files written:")
-    print(f"    {base_dir / '.env'}")
+    print(f"    {compose_dir / '.env'}")
     print(f"    {base_dir / 'backend' / '.env'}")

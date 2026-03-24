@@ -1,7 +1,7 @@
 services:
   frontend:
     build:
-      context: ./frontend
+      context: ./clio/frontend
       dockerfile: Dockerfile
     deploy:
       resources:
@@ -23,8 +23,8 @@ services:
 
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: ./clio
+      dockerfile: backend/Dockerfile
     deploy:
       resources:
         limits:
@@ -34,8 +34,8 @@ services:
       - 3001:3001
     volumes:
       - evidence_files:/app/evidence
-      - ./backend/data:/app/data
-      - ./backend/exports:/app/exports
+      - ./clio/backend/data:/app/data
+      - ./clio/backend/exports:/app/exports
     depends_on:
       db:
         condition: service_healthy
@@ -49,12 +49,13 @@ services:
       retries: 5
       start_period: 60s
     env_file:
-      - ./backend/.env
+      - path: ./clio/backend/.env
+        required: false
 
   celery_worker:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: ./clio
+      dockerfile: backend/Dockerfile
     deploy:
       resources:
         limits:
@@ -63,13 +64,14 @@ services:
     command: celery -A backend worker --loglevel=info -c 2
     volumes:
       - evidence_files:/app/evidence
-      - ./backend/data:/app/data
+      - ./clio/backend/data:/app/data
     depends_on:
       - redis
       - db
     restart: unless-stopped
     env_file:
-      - ./backend/.env
+      - path: ./clio/backend/.env
+        required: false
 
   redis:
     image: redis:7-alpine

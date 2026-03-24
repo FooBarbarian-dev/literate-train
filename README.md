@@ -33,8 +33,8 @@ proxy is needed.
 
 ```bash
 git clone <repository-url>
-cd literate-train/clio
-conda env create -f environment.yml
+cd literate-train
+conda env create -f clio/environment.yml
 conda activate clio
 ```
 
@@ -47,13 +47,13 @@ package in editable mode with all dev dependencies.
 clio-env
 ```
 
-This writes `clio/.env` and `clio/backend/.env` with random passwords and
-secrets. That's all the setup needed — no certificates, no manual secret
-editing.
+This writes `.env` (repo root, for Docker Compose variable substitution) and
+`clio/backend/.env` (Django service env) with random passwords and secrets.
+That's all the setup needed — no certificates, no manual secret editing.
 
 > **Security shortcut**: The generated passwords are printed to the terminal
 > and stored in plaintext `.env` files. The admin and user passwords are in
-> `backend/.env` as `ADMIN_PASSWORD` and `USER_PASSWORD`. In production you
+> `clio/backend/.env` as `ADMIN_PASSWORD` and `USER_PASSWORD`. In production you
 > would use a secrets vault instead.
 
 ### 3. Start
@@ -62,7 +62,7 @@ editing.
 docker compose up --build -d
 ```
 
-The backend and relation-service containers automatically:
+The backend container automatically:
 - Wait for the database to be ready
 - Run Django migrations
 - Collect static files (for Django admin CSS)
@@ -92,7 +92,7 @@ docker compose exec backend python manage.py seed_demo_data --clear
 - **API docs**: http://localhost:3000/api/schema/swagger-ui/
 - **Admin panel**: http://localhost:3000/api/admin/
 
-Log in with any username using the password from `backend/.env`:
+Log in with any username using the password from `clio/backend/.env`:
 - Use `ADMIN_PASSWORD` value with any username for **admin** access
 - Use `USER_PASSWORD` value with any username for **regular user** access
 
@@ -112,7 +112,7 @@ Log in with any username using the password from `backend/.env`:
 ## API Usage
 
 ```bash
-# Login (use the ADMIN_PASSWORD from backend/.env)
+# Login (use the ADMIN_PASSWORD from clio/backend/.env)
 curl -X POST http://localhost:3000/api/accounts/login/ \
   -H "Content-Type: application/json" \
   -d '{"username": "admin", "password": "YOUR_ADMIN_PASSWORD"}'
@@ -151,7 +151,7 @@ docker compose down -v
 |---|---|
 | Port 3000 already in use | `docker compose ps` or change the port mapping in compose.yaml |
 | Backend unhealthy | `docker compose logs backend` — the entrypoint waits for the DB, so check the `db` logs too |
-| Redis auth error | Make sure `backend/.env` has `REDIS_URL=redis://:PASSWORD@redis:6379/0` matching the password in `.env` — re-run `clio-env` to regenerate |
+| Redis auth error | Make sure `clio/backend/.env` has `REDIS_URL=redis://:PASSWORD@redis:6379/0` matching the password in `.env` — re-run `clio-env` to regenerate |
 | Database not ready | `docker compose logs db` — the entrypoint retries automatically |
 | Static files / CSS broken | `docker compose exec backend python manage.py collectstatic --noinput` |
 | Demo data missing | `docker compose exec backend python manage.py seed_demo_data` |
@@ -349,10 +349,10 @@ stripped from all results unconditionally.
 
 | Symptom | Fix |
 |---|---|
-| `No vLLM model name configured` (HTTP 503) | Set `VLLM_MODEL_NAME` in `backend/.env` to the model id reported by `GET /v1/models` |
+| `No vLLM model name configured` (HTTP 503) | Set `VLLM_MODEL_NAME` in `clio/backend/.env` to the model id reported by `GET /v1/models` |
 | `RAG retriever unavailable` in logs | Run `clio-manage ingest_threat_data` to build the Chroma index |
-| `No embedding model detected at ...` | Set `THREAT_RAG_EMBEDDING_BACKEND=sentence-transformers` in `backend/.env` |
-| NVD download is very slow | Add `NVD_API_KEY` to `backend/.env` to lift the rate limit |
+| `No embedding model detected at ...` | Set `THREAT_RAG_EMBEDDING_BACKEND=sentence-transformers` in `clio/backend/.env` |
+| NVD download is very slow | Add `NVD_API_KEY` to `clio/backend/.env` to lift the rate limit |
 | MITRE files not updating | Delete `threat_data/mitre/*.json` to force a fresh download |
 | Vector store out of date | Re-run `clio-manage ingest_threat_data` (upsert is idempotent) |
 
