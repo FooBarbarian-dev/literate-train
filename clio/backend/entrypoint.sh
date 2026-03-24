@@ -4,7 +4,7 @@ set -e
 echo "==> Waiting for database..."
 until python -c "
 import django, os
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.settings.development')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.settings.production')
 django.setup()
 from django.db import connection
 connection.ensure_connection()
@@ -14,19 +14,20 @@ connection.ensure_connection()
 done
 echo "    Database ready."
 
-echo "==> Running migrations..."
-python manage.py migrate --noinput
+if [ "$RUN_STARTUP_SCRIPTS" = "true" ]; then
+    echo "==> Running migrations..."
+    python manage.py migrate --noinput
 
-echo "==> Collecting static files..."
-python manage.py collectstatic --noinput --clear 2>/dev/null || true
+    echo "==> Collecting static files..."
+    python manage.py collectstatic --noinput --clear 2>/dev/null || true
 
-echo "==> Seeding initial passwords..."
-python manage.py seed_initial_passwords
+    echo "==> Seeding initial passwords..."
+    python manage.py seed_initial_passwords
 
-echo "==> Ensuring Django admin users exist..."
-python -c "
+    echo "==> Ensuring Django admin users exist..."
+    python -c "
 import django, os
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.settings.development')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.settings.production')
 django.setup()
 from django.contrib.auth import get_user_model
 User = get_user_model()
@@ -53,9 +54,10 @@ elif not user_pw:
 else:
     print('  Django staff user already exists')
 "
+fi
 
 echo "==> Starting Gunicorn..."
 exec gunicorn backend.asgi:application \
-    -w 4 \
+    -w ${WEB_CONCURRENCY:-2} \
     -k uvicorn.workers.UvicornWorker \
     --bind 0.0.0.0:3001

@@ -1,0 +1,27 @@
+# Git
+.git/
+**/.git/
+
+# Python artifacts
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info/
+**/.pytest_cache/
+**/htmlcov/
+
+# Frontend is not part of the backend build context
+frontend/
+
+# Volume-mounted at runtime — no need to bake into the image
+backend/data/
+backend/exports/
+
+# Environment files are injected via compose env_file
+backend/.env
+**/.env*
+
+# Dev and documentation files
+*.md
+environment.yml
+.gitignore
+FIXES_PROGRESS.md
