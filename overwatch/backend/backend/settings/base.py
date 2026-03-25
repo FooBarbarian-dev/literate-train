@@ -16,6 +16,10 @@ env = environ.Env(
     POSTGRES_HOST=(str, "localhost"),
     POSTGRES_PORT=(str, "5432"),
     REDIS_URL=(str, "redis://localhost:6379/0"),
+    # Separate broker URL so the celery_worker (bridge network, reaches Redis
+    # by service name) can use a different address than the backend (host
+    # network, reaches Redis via localhost).  Falls back to REDIS_URL if unset.
+    CELERY_BROKER_URL=(str, ""),
     CORS_ALLOWED_ORIGINS=(list, ["http://localhost:3000"]),
     EVIDENCE_ROOT=(str, ""),
     DATA_ROOT=(str, ""),
@@ -284,8 +288,14 @@ STORAGES = {
 # Celery
 # ---------------------------------------------------------------------------
 
-CELERY_BROKER_URL = env("REDIS_URL", default="redis://localhost:6379/1")
-CELERY_RESULT_BACKEND = env("REDIS_URL", default="redis://localhost:6379/1")
+# If CELERY_BROKER_URL is explicitly set in the environment, use it directly.
+# This is needed when backend (network_mode: host, uses localhost) and
+# celery_worker (bridge network, uses the 'redis' service name) need different
+# broker addresses despite sharing the same .env file.
+# If unset, fall back to REDIS_URL so single-node / local dev still works.
+_celery_broker_url = env("CELERY_BROKER_URL") or env("REDIS_URL")
+CELERY_BROKER_URL = _celery_broker_url
+CELERY_RESULT_BACKEND = _celery_broker_url
 CELERY_TASK_SERIALIZER = "json"
 
 # ---------------------------------------------------------------------------

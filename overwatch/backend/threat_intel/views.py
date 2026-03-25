@@ -590,7 +590,22 @@ class ChatAPIView(APIView):
             message[:120],
         )
 
+        from django.conf import settings as _settings
+
         from threat_intel.tasks import run_chat_task
+
+        # Log the effective broker URL (mask password so it's safe to print).
+        _broker_url: str = getattr(_settings, "CELERY_BROKER_URL", "<not set>")
+        try:
+            import re as _re
+            _safe_broker = _re.sub(r"(:)[^@/]+(@)", r"\1***\2", _broker_url)
+        except Exception:
+            _safe_broker = "<parse error>"
+        logger.debug(
+            "Dispatching chat task  session=%s  broker=%s",
+            session_id,
+            _safe_broker,
+        )
 
         # Pass thread_id as integer directly (Celery JSON-serialises ints fine).
         try:
@@ -601,11 +616,14 @@ class ChatAPIView(APIView):
             )
         except Exception as exc:
             logger.exception(
-                "Could not dispatch chat task for session %s (broker unavailable?)",
+                "Could not dispatch chat task for session %s  "
+                "broker=%s  exc_type=%s",
                 session_id,
+                _safe_broker,
+                type(exc).__name__,
             )
             return Response(
-                {"error": f"Could not queue chat task: {exc}"},
+                {"error": f"Could not queue chat task ({type(exc).__name__}): {exc}"},
                 status=503,
             )
 
