@@ -68,6 +68,8 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
+    environment:
+      RUN_STARTUP_SCRIPTS: "true"
     env_file:
       - ./clio/backend/.env
 
