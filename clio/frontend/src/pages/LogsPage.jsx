@@ -571,7 +571,7 @@ function LogPanel({ log, onClose, onSave }) {
       // Add newly selected tags
       for (const tag of selectedTags) {
         if (!originalTags.some((t) => t.id === tag.id)) {
-          await client.post('/tags/log-tag/', { log_id: logId, tag_id: tag.id })
+          await client.post('/tags/tags/log-tag/', { log_id: logId, tag_id: tag.id })
         }
       }
 
@@ -581,7 +581,7 @@ function LogPanel({ log, onClose, onSave }) {
           !selectedTags.some((t) => t.id === tag.id) &&
           tag.category !== 'operation'
         ) {
-          await client.delete('/tags/log-tag/', {
+          await client.delete('/tags/tags/log-tag/', {
             data: { log_id: logId, tag_id: tag.id },
           })
         }
@@ -773,7 +773,7 @@ export default function LogsPage() {
     try {
       const params = { page }
       if (filters.hostname)   params.hostname   = filters.hostname
-      if (filters.ip_address) params.ip_address = filters.ip_address
+      if (filters.ip_address) params.internal_ip = filters.ip_address
       if (filters.status)     params.status     = filters.status
       if (filters.tag)        params.tag        = filters.tag.name
 

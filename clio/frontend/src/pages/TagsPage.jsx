@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
 import client from '../api/client'
-import { useAuth } from '../context/AuthContext'
 
 function CreateTagModal({ onClose, onSave }) {
   const [form, setForm] = useState({ name: '', description: '', color: '#3b82f6' })
@@ -96,7 +95,6 @@ function CreateTagModal({ onClose, onSave }) {
 }
 
 export default function TagsPage() {
-  const { user } = useAuth()
   const [tags, setTags] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -131,14 +129,12 @@ export default function TagsPage() {
     <div className="page">
       <div className="page-header">
         <h1>Tags</h1>
-        {user?.is_admin && (
-          <button
-            className="btn btn-primary"
-            onClick={() => setShowCreate(true)}
-          >
-            + New Tag
-          </button>
-        )}
+        <button
+          className="btn btn-primary"
+          onClick={() => setShowCreate(true)}
+        >
+          + New Tag
+        </button>
       </div>
 
       <div className="filters-bar">
@@ -163,7 +159,7 @@ export default function TagsPage() {
       ) : filteredTags.length === 0 ? (
         <div className="empty-state">
           <p>{search ? 'No tags match your search.' : 'No tags found.'}</p>
-          {user?.is_admin && !search && (
+          {!search && (
             <button
               className="btn btn-primary"
               onClick={() => setShowCreate(true)}
