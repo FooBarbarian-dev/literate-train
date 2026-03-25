@@ -333,7 +333,43 @@ curl -s -X POST http://localhost:8000/api/chat/ \
 ```json
 {
   "reply": "LSASS credential dumping maps to ATT&CK technique T1003.001 (OS Credential Dumping: LSASS Memory). CVE-2021-36934 (HiveNightmare/SeriousSAM, CVSS 7.8) allows low-privileged users to read the SAM database...",
-  "thread_id": "3f8a2b1c-d4e5-..."
+  "thread_id": 1
+}
+```
+
+#### Session management API
+
+Named chat sessions persist conversation history across page reloads.
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/chat/sessions/` | List all sessions for the authenticated user |
+| `POST` | `/api/chat/sessions/` | Create a new named session |
+| `GET` | `/api/chat/sessions/{id}/` | Retrieve session metadata |
+| `PATCH` | `/api/chat/sessions/{id}/` | Rename a session |
+| `DELETE` | `/api/chat/sessions/{id}/` | Delete a session |
+| `GET` | `/api/chat/sessions/{id}/messages/` | Retrieve all messages in a session |
+| `GET` | `/api/chat/sessions/{id}/sources/` | Retrieve RAG source citations used in the session |
+| `GET` | `/api/chat/tasks/{task_id}/` | Poll async chat task status |
+
+**Sources endpoint response shape:**
+```json
+{
+  "mitre": {
+    "count": 3,
+    "record_ids": ["T1059", "T1003.001", "T1547"],
+    "source_urls": [
+      "https://attack.mitre.org/techniques/T1059/",
+      "https://attack.mitre.org/techniques/T1003/001/",
+      "https://attack.mitre.org/techniques/T1547/"
+    ]
+  },
+  "nvd": {
+    "count": 1,
+    "record_ids": ["CVE-2021-36934"],
+    "source_urls": ["https://nvd.nist.gov/vuln/detail/CVE-2021-36934"]
+  },
+  "db_models": []
 }
 ```
 
@@ -349,7 +385,8 @@ operation or log data.  It uses a `query_django_db` tool internally.  Example:
 ```
 
 Available models for DB search: `Log`, `Tag`, `Operation`, `EvidenceFile`,
-`LogTemplate`, `Relation`, `FileStatus`, `LogRelationship`, `TagRelationship`.
+`LogTemplate`, `Relation`, `FileStatus`, `LogRelationship`, `TagRelationship`,
+`ChatSession`, `SessionSource`.
 
 Sensitive fields (`*password*`, `*token*`, `*secret*`, `*key*`, `*hash*`) are
 stripped from all results unconditionally.

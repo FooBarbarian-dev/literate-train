@@ -2848,6 +2848,97 @@ a:hover {
   font-variant-numeric: tabular-nums;
 }
 
+/* ---- BUG 4: MITRE column visibility toggle ---- */
+
+.ti-col-toggle-wrap {
+  position: relative;
+}
+
+.ti-col-toggle-btn {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.ti-col-toggle-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 50;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 6px 0;
+  min-width: 130px;
+}
+
+.ti-col-toggle-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s;
+}
+
+.ti-col-toggle-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.ti-col-toggle-item input[type="checkbox"] {
+  accent-color: var(--accent-primary);
+  width: 13px;
+  height: 13px;
+  cursor: pointer;
+}
+
+/* BUG 4: AI Assist column "Ask AI" button */
+.ti-ask-ai-btn {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--accent-primary);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 8px;
+  white-space: nowrap;
+  transition: all 0.12s;
+}
+
+.ti-ask-ai-btn:hover {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: var(--accent-primary);
+}
+
+/* ---- BUG 2: per-session source counts in RAG panel ---- */
+
+.ti-rag-session-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.ti-rag-session-row-total {
+  opacity: 0.7;
+}
+
+.ti-rag-session-label {
+  color: var(--text-secondary);
+}
+
+.ti-rag-session-count {
+  color: var(--accent-primary);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
 /* ---- Responsive breakpoints ---- */
 
 /* ≥1024px: full three-column layout (default) */

@@ -55,6 +55,7 @@ services:
       - evidence_files:/app/evidence
       - ./overwatch/backend/data:/app/data
       - ./overwatch/backend/exports:/app/exports
+      - threat_data:/app/threat_data
     depends_on:
       db:
         condition: service_healthy
@@ -85,12 +86,20 @@ services:
     volumes:
       - evidence_files:/app/evidence
       - ./overwatch/backend/data:/app/data
+      - threat_data:/app/threat_data
     depends_on:
       - redis
       - db
     restart: unless-stopped
     env_file:
       - ./overwatch/backend/.env
+    environment:
+      # The backend container runs with network_mode: host and reaches Redis
+      # via localhost.  The celery_worker is on the Docker bridge network and
+      # must use the 'redis' service name instead.  Override CELERY_BROKER_URL
+      # here so the worker uses the correct address without changing REDIS_URL
+      # (which the backend still needs as localhost for its own cache).
+      CELERY_BROKER_URL: "redis://:${REDIS_PASSWORD}@redis:6379/0"
 
   redis:
     image: redis:7-alpine
@@ -142,3 +151,4 @@ volumes:
   redis_data:
   postgres_data:
   evidence_files:
+  threat_data:

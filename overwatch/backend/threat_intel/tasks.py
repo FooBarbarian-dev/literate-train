@@ -11,6 +11,7 @@ Results are stored in Django's cache (Redis in production) with a 10-minute TTL.
 from __future__ import annotations
 
 import logging
+import re
 
 from celery import shared_task
 from django.core.cache import cache
@@ -20,12 +21,69 @@ logger = logging.getLogger(__name__)
 
 _CACHE_TTL = 600  # seconds — 10 minutes
 
+# BUG 2/3: regexes to extract cited source IDs from assistant replies.
+_CVE_RE = re.compile(r'CVE-\d{4}-\d{4,}')
+_MITRE_RE = re.compile(r'T\d{4}(?:\.\d{3})?')
+
+
+def _store_session_sources(session_id: int, reply_text: str) -> None:
+    """
+    Parse reply_text for CVE IDs and ATT&CK technique IDs and persist them
+    as SessionSource records (BUG 2 + BUG 3).
+
+    Uses get_or_create so repeated citations across turns don't cause duplicates.
+    source_url is populated for MITRE and NVD records per BUG 3.
+    """
+    from threat_intel.models import SessionSource
+
+    try:
+        from threat_intel.models import ChatSession
+        session = ChatSession.objects.get(id=session_id)
+    except Exception:
+        return
+
+    cve_ids = set(_CVE_RE.findall(reply_text))
+    mitre_ids = set(_MITRE_RE.findall(reply_text))
+
+    for cve_id in cve_ids:
+        try:
+            SessionSource.objects.get_or_create(
+                session=session,
+                source_type=SessionSource.SOURCE_NVD,
+                record_id=cve_id,
+                defaults={
+                    "source_url": f"https://nvd.nist.gov/vuln/detail/{cve_id}",
+                },
+            )
+        except Exception as exc:
+            logger.debug("Could not store NVD source %s: %s", cve_id, exc)
+
+    for mitre_id in mitre_ids:
+        # Convert T1059.001 → T1059/001 for the MITRE URL path.
+        url_path = mitre_id.replace(".", "/")
+        try:
+            SessionSource.objects.get_or_create(
+                session=session,
+                source_type=SessionSource.SOURCE_MITRE,
+                record_id=mitre_id,
+                defaults={
+                    "source_url": f"https://attack.mitre.org/techniques/{url_path}/",
+                },
+            )
+        except Exception as exc:
+            logger.debug("Could not store MITRE source %s: %s", mitre_id, exc)
+
+    logger.debug(
+        "Session %s sources stored: %d NVD, %d MITRE",
+        session_id, len(cve_ids), len(mitre_ids),
+    )
+
 
 @shared_task(bind=True)
 def run_chat_task(
     self,
     message: str,
-    thread_id_str: str,
+    thread_id: int | None,
     session_id: int | None = None,
 ) -> None:
     """
@@ -33,11 +91,13 @@ def run_chat_task(
     the result under the Celery task ID.
 
     Args:
-        message:       The user's message text.
-        thread_id_str: String representation of the django-ai-assistant Thread UUID.
-        session_id:    Optional ChatSession PK.  When supplied the session's
-                       updated_at timestamp is refreshed after a successful reply
-                       so the sidebar ordering stays current.
+        message:    The user's message text.
+        thread_id:  Integer PK of the django-ai-assistant Thread (BUG 1 fix —
+                    was previously a UUID string; Thread.id is BigAutoField).
+        session_id: Optional ChatSession PK.  When supplied:
+                    - session.updated_at is refreshed after a successful reply
+                    - SessionSource records are persisted for cited CVEs/techniques
+                      (BUG 2 + BUG 3).
     """
     task_id = self.request.id
     cache.set(f"chat_task:{task_id}", {"status": "running"}, timeout=_CACHE_TTL)
@@ -49,16 +109,16 @@ def run_chat_task(
 
         assistant = CveAttackAssistant()
 
-        if thread_id_str:
+        if thread_id is not None:
             try:
-                thread = Thread.objects.get(id=thread_id_str)
+                thread = Thread.objects.get(id=int(thread_id))
             except Thread.DoesNotExist:
                 thread = Thread.objects.create(
                     created_by=None, assistant_id=assistant.id
                 )
                 logger.warning(
                     "Thread %s not found in task; created replacement %s",
-                    thread_id_str,
+                    thread_id,
                     thread.id,
                 )
         else:
@@ -73,7 +133,31 @@ def run_chat_task(
             message[:120],
         )
 
-        reply_text = assistant.run(message, thread_id=thread.id)
+        # --- Manual RAG retrieval ---
+        # django-ai-assistant passes instructions verbatim; it does NOT
+        # substitute {context} via get_retriever().  We retrieve relevant
+        # documents here and prepend them to the user message so the LLM
+        # always receives real threat-intel context regardless of how the
+        # library handles the retriever hook.
+        from threat_intel.rag import get_retriever as _get_retriever
+
+        context_block = ""
+        try:
+            retriever = _get_retriever()
+            docs = retriever.invoke(message)
+            if docs:
+                passages = "\n\n".join(d.page_content for d in docs)
+                context_block = f"[THREAT INTEL CONTEXT]\n{passages}\n[/THREAT INTEL CONTEXT]\n\n"
+                logger.info(
+                    "Chat task %s  RAG retrieved %d passages", task_id, len(docs)
+                )
+            else:
+                logger.info("Chat task %s  RAG returned 0 passages", task_id)
+        except Exception:
+            logger.exception("Chat task %s  RAG retrieval failed", task_id)
+
+        augmented_message = context_block + message
+        reply_text = assistant.run(augmented_message, thread_id=thread.id)
         if not isinstance(reply_text, str):
             reply_text = str(reply_text)
 
@@ -82,16 +166,19 @@ def run_chat_task(
             {
                 "status": "complete",
                 "reply": reply_text,
-                "thread_id": str(thread.id),
+                "thread_id": thread.id,
             },
             timeout=_CACHE_TTL,
         )
 
-        # Bump session.updated_at so the sidebar ordering reflects recent usage.
         if session_id:
             from threat_intel.models import ChatSession
 
+            # Bump updated_at so the sidebar ordering reflects recent usage.
             ChatSession.objects.filter(id=session_id).update(updated_at=now())
+
+            # BUG 2 + BUG 3: persist source citations extracted from the reply.
+            _store_session_sources(session_id, reply_text)
 
         logger.info("Chat task %s complete  reply_len=%d", task_id, len(reply_text))
 

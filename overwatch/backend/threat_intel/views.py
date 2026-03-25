@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import logging
 import time
-import uuid
 from pathlib import Path
 
 from django.conf import settings
@@ -28,7 +27,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from threat_intel.models import ChatSession, MitreTechnique, NvdCve
+from threat_intel.models import ChatSession, MitreTechnique, NvdCve, SessionSource
 
 logger = logging.getLogger(__name__)
 
@@ -85,9 +84,11 @@ def _run_assistant(
     thread: Thread | None
     if thread_id:
         try:
-            thread = Thread.objects.get(id=thread_id)
+            # thread_id may arrive as a string from the legacy JSON body;
+            # Thread.id is an integer field so coerce it.
+            thread = Thread.objects.get(id=int(thread_id))
             logger.debug("Resumed existing thread %s", thread_id)
-        except Thread.DoesNotExist:
+        except (Thread.DoesNotExist, ValueError, TypeError):
             thread = Thread.objects.create(
                 created_by=db_user, assistant_id=assistant.id
             )
@@ -306,6 +307,9 @@ class ChatSessionListCreateView(APIView):
         username = _get_username(request)
 
         # Create the backing Thread immediately so thread_id is stable.
+        # BUG 1 FIX: thread.id is an integer PK; store it as-is in
+        # BigIntegerField.  No UUID coercion.
+        thread_id: int | None = None
         try:
             from django_ai_assistant.models import Thread
 
@@ -315,11 +319,11 @@ class ChatSessionListCreateView(APIView):
             thread = Thread.objects.create(
                 created_by=None, assistant_id=assistant.id
             )
-            thread_id = thread.id
+            thread_id = int(thread.id)
         except Exception as exc:
             logger.warning("Could not create Thread via django-ai-assistant: %s", exc)
-            # Fall back to a bare UUID — the task will create the Thread on first send.
-            thread_id = uuid.uuid4()
+            # Leave thread_id as None — _handle_session_message will retry on
+            # first send.  Do NOT fall back to a UUID (that was BUG 1's root cause).
 
         session = ChatSession.objects.create(
             thread_id=thread_id,
@@ -419,22 +423,50 @@ class ChatSessionMessagesView(APIView):
             return Response({"error": "Session not found."}, status=404)
 
         try:
+            import json as _json
+
             from django_ai_assistant.models import Message
 
+            # django-ai-assistant stores messages in a `message` JSONField
+            # (type="human"|"ai", data={"content": "..."}).  There is no
+            # separate `role` or `content` column — the ORM field is `message`.
             qs = (
                 Message.objects.filter(thread_id=session.thread_id)
                 .order_by("created_at")
-                .values("role", "content", "created_at")
+                .values("message", "created_at")
             )
+            # Only surface human/AI turns — skip tool calls and tool results
+            # (type "tool", "function", "function_call") which are internal
+            # implementation details that clutter the chat UI.
+            _VISIBLE_TYPES = {"human", "ai"}
             _role_map = {"human": "user", "ai": "assistant"}
-            data = [
-                {
-                    "role": _role_map.get(m["role"], m["role"]),
-                    "content": m["content"],
-                    "created_at": m["created_at"].isoformat(),
-                }
-                for m in qs
-            ]
+            data = []
+            for m in qs:
+                try:
+                    raw = m["message"]
+                    if isinstance(raw, str):
+                        raw = _json.loads(raw)
+                    msg_type = raw.get("type", "")
+                    if msg_type not in _VISIBLE_TYPES:
+                        continue
+                    content = (
+                        raw.get("data", {}).get("content")
+                        or raw.get("content")
+                        or ""
+                    )
+                    # AI messages may have content=None when they only contain
+                    # tool_calls; skip those too.
+                    if not content:
+                        continue
+                    data.append(
+                        {
+                            "role": _role_map.get(msg_type, msg_type),
+                            "content": content,
+                            "created_at": m["created_at"].isoformat(),
+                        }
+                    )
+                except Exception:
+                    continue
         except Exception as exc:
             logger.debug("Could not load messages for session %s: %s", pk, exc)
             data = []
@@ -532,6 +564,27 @@ class ChatAPIView(APIView):
         except ChatSession.DoesNotExist:
             return Response({"error": "Session not found."}, status=404)
 
+        # If Thread creation failed at session-create time, retry now.
+        # BUG 1 FIX: thread_id is BigIntegerField; never assign a UUID here.
+        if session.thread_id is None:
+            try:
+                from django_ai_assistant.models import Thread
+
+                from threat_intel.assistants import CveAttackAssistant
+
+                assistant = CveAttackAssistant()
+                thread = Thread.objects.create(
+                    created_by=None, assistant_id=assistant.id
+                )
+                session.thread_id = int(thread.id)
+                session.save(update_fields=["thread_id"])
+            except Exception as exc:
+                logger.error("Could not create Thread for session %s: %s", session_id, exc)
+                return Response(
+                    {"error": "Could not initialise AI session thread. Is the LLM service running?"},
+                    status=503,
+                )
+
         # Auto-name session on first message (before dispatching task).
         session_name = session.name
         if not session_name:
@@ -547,13 +600,42 @@ class ChatAPIView(APIView):
             message[:120],
         )
 
+        from django.conf import settings as _settings
+
         from threat_intel.tasks import run_chat_task
 
-        task = run_chat_task.delay(
-            message,
-            str(session.thread_id),
-            session_id=session.id,
+        # Log the effective broker URL (mask password so it's safe to print).
+        _broker_url: str = getattr(_settings, "CELERY_BROKER_URL", "<not set>")
+        try:
+            import re as _re
+            _safe_broker = _re.sub(r"(:)[^@/]+(@)", r"\1***\2", _broker_url)
+        except Exception:
+            _safe_broker = "<parse error>"
+        logger.debug(
+            "Dispatching chat task  session=%s  broker=%s",
+            session_id,
+            _safe_broker,
         )
+
+        # Pass thread_id as integer directly (Celery JSON-serialises ints fine).
+        try:
+            task = run_chat_task.delay(
+                message,
+                session.thread_id,
+                session_id=session.id,
+            )
+        except Exception as exc:
+            logger.exception(
+                "Could not dispatch chat task for session %s  "
+                "broker=%s  exc_type=%s",
+                session_id,
+                _safe_broker,
+                type(exc).__name__,
+            )
+            return Response(
+                {"error": f"Could not queue chat task ({type(exc).__name__}): {exc}"},
+                status=503,
+            )
 
         return Response(
             {
@@ -594,6 +676,66 @@ class ChatTaskStatusView(APIView):
 
 
 # ---------------------------------------------------------------------------
+# Per-session source citations   GET /api/chat/sessions/{id}/sources/
+# ---------------------------------------------------------------------------
+
+
+class ChatSessionSourcesView(APIView):
+    """
+    GET /api/chat/sessions/{id}/sources/
+
+    Returns which RAG source records (MITRE techniques, NVD CVEs, Django DB
+    model rows) were retrieved during this session's lifetime.
+
+    BUG 2 FIX: the RAG context panel calls this endpoint whenever the active
+               session changes so "used in this session" counts update correctly.
+    BUG 3 FIX: source_url is included per record so future citation UI can link
+               directly to MITRE / NVD pages without a schema migration.
+
+    Response shape:
+    {
+      "mitre":     {"count": int, "record_ids": [...], "source_urls": [...]},
+      "nvd":       {"count": int, "record_ids": [...], "source_urls": [...]},
+      "db_models": []   # DB-model citations not yet tracked at record level
+    }
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request, pk: int) -> Response:
+        username = _get_username(request)
+        try:
+            session = ChatSession.objects.get(id=pk, username=username)
+        except ChatSession.DoesNotExist:
+            return Response({"error": "Session not found."}, status=404)
+
+        def _collect(source_type: str) -> dict:
+            qs = (
+                SessionSource.objects
+                .filter(session=session, source_type=source_type)
+                .values_list("record_id", "source_url")
+            )
+            record_ids = []
+            source_urls = []
+            for rid, url in qs:
+                record_ids.append(rid)
+                source_urls.append(url)
+            return {
+                "count": len(record_ids),
+                "record_ids": record_ids,
+                "source_urls": source_urls,
+            }
+
+        return Response(
+            {
+                "mitre": _collect(SessionSource.SOURCE_MITRE),
+                "nvd": _collect(SessionSource.SOURCE_NVD),
+                "db_models": [],
+            }
+        )
+
+
+# ---------------------------------------------------------------------------
 # RAG status panel   GET /api/chat/rag-status/
 # ---------------------------------------------------------------------------
 
@@ -628,7 +770,7 @@ def _jsonl_line_count(path: Path) -> int:
         return 0
 
 
-def _check_vllm_online(base_url: str, timeout: float = 2.0) -> bool:
+def _check_vllm_online(base_url: str, timeout: float = 1.0) -> bool:
     """Probe vLLM /v1/models with a short timeout; return True if reachable."""
     try:
         import httpx
@@ -645,11 +787,22 @@ class RagStatusView(APIView):
 
     Returns live counts and sync timestamps for all RAG data sources.
     The frontend loads this once on page load and re-polls every 5 minutes.
+
+    The response is cached in Redis for 60 seconds to avoid hammering Chroma,
+    the vLLM probe, and the CVSS distribution queries on every panel render.
     """
 
     permission_classes = [IsAuthenticated]
+    _CACHE_KEY = "threat_intel:rag_status"
+    _CACHE_TTL = 60  # seconds
 
     def get(self, request: Request) -> Response:
+        from django.core.cache import cache as _cache
+
+        cached = _cache.get(self._CACHE_KEY)
+        if cached is not None:
+            return Response(cached)
+
         threat_data = Path(settings.BASE_DIR) / "threat_data"
         chroma_db = threat_data / "chroma_db"
 
@@ -710,22 +863,22 @@ class RagStatusView(APIView):
         vllm_base_url: str = getattr(settings, "VLLM_BASE_URL", "http://localhost:8000/v1")
         llm_online = _check_vllm_online(vllm_base_url)
 
-        return Response(
-            {
-                "mitre": {
-                    "count": mitre_count,
-                    "last_sync": mitre_last_sync,
-                    "domains": mitre_domains,
-                },
-                "nvd": {
-                    "count": nvd_count,
-                    "last_sync": nvd_last_sync,
-                    "cvss_distribution": cvss_dist,
-                },
-                "db_models": db_models_data,
-                "llm_online": llm_online,
-            }
-        )
+        payload = {
+            "mitre": {
+                "count": mitre_count,
+                "last_sync": mitre_last_sync,
+                "domains": mitre_domains,
+            },
+            "nvd": {
+                "count": nvd_count,
+                "last_sync": nvd_last_sync,
+                "cvss_distribution": cvss_dist,
+            },
+            "db_models": db_models_data,
+            "llm_online": llm_online,
+        }
+        _cache.set(self._CACHE_KEY, payload, timeout=self._CACHE_TTL)
+        return Response(payload)
 
 
 def _mtime_iso(path: Path) -> str | None:

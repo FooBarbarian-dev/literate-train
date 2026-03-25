@@ -20,6 +20,9 @@
 | 16 | Pin Django 5.2 LTS and connection pooling | ✅ Complete | Django>=5.2,<5.3, CONN_MAX_AGE=600, CONN_HEALTH_CHECKS=True, pool=True |
 | 17 | Replace signal thread-spawning with Celery | ✅ Complete | celery.py, tasks.py, signals.py rewritten, compose.yaml celery_worker added |
 
+| 18 | Extend CLIO: BUG 1 (thread_id UUID→int), BUG 2 (per-session sources), BUG 3 (source_url citations), BUG 4 (AI Assist column visible by default) | ✅ Complete | Migration 0003, SessionSource model, ChatSessionSourcesView, tasks._store_session_sources, ThreatIntelPage updates |
+| 19 | Admin pages for all threat_intel models (ChatSession, SessionSource, enhanced MitreTechnique/NvdCve) | ✅ Complete | threat_intel/admin.py rewritten; custom.css column rules added |
+
 ## DEPLOYMENT NOTES
 
 ### Item 8 — Log.id BigAutoField migration

@@ -254,7 +254,23 @@ const CVSS_SEVERITY_OPTIONS = [
   { value: 'none',     label: 'No score',         badge: null },
 ]
 
-function MitreTab() {
+// BUG 4: column definitions for the MITRE table.
+// The source of truth for default visibility is this Set.  "ai_assist" is
+// included so it is visible on initial page load — no localStorage override
+// needed when there is no stored preference.
+const MITRE_ALL_COLS = ['external_id', 'name', 'domain', 'tactics', 'ai_assist']
+const MITRE_DEFAULT_VISIBLE = new Set(MITRE_ALL_COLS)
+
+const MITRE_COL_LABELS = {
+  external_id: 'ID',
+  name: 'Name',
+  domain: 'Domain',
+  tactics: 'Tactics',
+  ai_assist: 'AI Assist',
+}
+
+// BUG 4: accepts onAskAI callback from parent ThreatIntelPage.
+function MitreTab({ onAskAI }) {
   const [items, setItems] = useState([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -268,6 +284,48 @@ function MitreTab() {
   const [facets, setFacets] = useState({ domains: [], tactics: [] })
   const debouncedSearch = useDebounce(search)
   const pageSize = 50
+
+  // BUG 4: column visibility — persisted to localStorage so user prefs survive
+  // refreshes.  Absence of a stored key → use MITRE_DEFAULT_VISIBLE (which
+  // includes ai_assist).  This is the source of truth; no setTimeout needed.
+  const [visibleCols, setVisibleCols] = useState(() => {
+    try {
+      const stored = localStorage.getItem('ti_mitre_visible_cols')
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        // Validate: only keep known column names; reject corrupt data
+        if (Array.isArray(parsed) && parsed.every((c) => MITRE_ALL_COLS.includes(c))) {
+          return new Set(parsed)
+        }
+      }
+    } catch (_) {}
+    return new Set(MITRE_DEFAULT_VISIBLE)
+  })
+
+  const toggleCol = (col) => {
+    setVisibleCols((prev) => {
+      const next = new Set(prev)
+      if (next.has(col)) next.delete(col)
+      else next.add(col)
+      try {
+        localStorage.setItem('ti_mitre_visible_cols', JSON.stringify([...next]))
+      } catch (_) {}
+      return next
+    })
+  }
+
+  const [colToggleOpen, setColToggleOpen] = useState(false)
+  const colToggleRef = useRef(null)
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (colToggleRef.current && !colToggleRef.current.contains(e.target)) {
+        setColToggleOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
   // Load facets once
   useEffect(() => {
@@ -323,6 +381,33 @@ function MitreTab() {
           </button>
         )}
         <span className="filter-count">{total.toLocaleString()} technique{total !== 1 ? 's' : ''}</span>
+
+        {/* BUG 4: column visibility toggle — source of truth is visibleCols state
+            initialised from localStorage (or MITRE_DEFAULT_VISIBLE which includes
+            ai_assist).  No setTimeout, no DOM mutation — pure React state. */}
+        <span className="ti-col-toggle-wrap" ref={colToggleRef}>
+          <button
+            className="btn btn-ghost btn-sm ti-col-toggle-btn"
+            onClick={() => setColToggleOpen((o) => !o)}
+            title="Show/hide columns"
+          >
+            Columns ▾
+          </button>
+          {colToggleOpen && (
+            <div className="ti-col-toggle-dropdown">
+              {MITRE_ALL_COLS.map((col) => (
+                <label key={col} className="ti-col-toggle-item">
+                  <input
+                    type="checkbox"
+                    checked={visibleCols.has(col)}
+                    onChange={() => toggleCol(col)}
+                  />
+                  <span>{MITRE_COL_LABELS[col]}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </span>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
@@ -339,38 +424,74 @@ function MitreTab() {
           <table className="data-table ti-table">
             <thead>
               <tr>
-                <FilterSortTh col="external_id" label="ID" sort={sort} onSort={handleSort} style={{ width: 90 }} />
-                <FilterSortTh col="name" label="Name" sort={sort} onSort={handleSort} />
-                <FilterSortTh
-                  col="domain" label="Domain" sort={sort} onSort={handleSort} style={{ width: 130 }}
-                  filter={<MultiSelectFilter label="Domain" options={domainOptions} selected={domains} onChange={setDomains} />}
-                />
-                <FilterSortTh
-                  col="tactics" label="Tactics" sort={sort} onSort={handleSort} style={{ width: 280 }}
-                  filter={<MultiSelectFilter label="Tactics" options={tacticOptions} selected={tactics} onChange={setTactics} />}
-                />
+                {visibleCols.has('external_id') && (
+                  <FilterSortTh col="external_id" label="ID" sort={sort} onSort={handleSort} style={{ width: 90 }} />
+                )}
+                {visibleCols.has('name') && (
+                  <FilterSortTh col="name" label="Name" sort={sort} onSort={handleSort} />
+                )}
+                {visibleCols.has('domain') && (
+                  <FilterSortTh
+                    col="domain" label="Domain" sort={sort} onSort={handleSort} style={{ width: 130 }}
+                    filter={<MultiSelectFilter label="Domain" options={domainOptions} selected={domains} onChange={setDomains} />}
+                  />
+                )}
+                {visibleCols.has('tactics') && (
+                  <FilterSortTh
+                    col="tactics" label="Tactics" sort={sort} onSort={handleSort} style={{ width: 280 }}
+                    filter={<MultiSelectFilter label="Tactics" options={tacticOptions} selected={tactics} onChange={setTactics} />}
+                  />
+                )}
+                {/* BUG 4: AI Assist column — visible by default (included in MITRE_DEFAULT_VISIBLE) */}
+                {visibleCols.has('ai_assist') && (
+                  <th style={{ width: 80 }} className="ti-filter-sort-th">
+                    <div className="ti-th-inner">AI Assist</div>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => (
+              {items.map((item) => {
+                const colSpan = visibleCols.size
+                return (
                 <>
                   <tr
                     key={item.id}
                     className={`clickable-row${expanded === item.id ? ' row-selected' : ''}`}
                     onClick={() => setExpanded(expanded === item.id ? null : item.id)}
                   >
-                    <td><span className="mono ti-technique-id">{item.external_id}</span></td>
-                    <td className="ti-technique-name">{item.name}</td>
-                    <td>
-                      <span className={`ti-domain-badge ti-domain-${item.domain}`}>
-                        {DOMAIN_LABELS[item.domain] || item.domain}
-                      </span>
-                    </td>
-                    <td><PillList items={item.tactics} className="ti-pill-tactic" max={3} /></td>
+                    {visibleCols.has('external_id') && (
+                      <td><span className="mono ti-technique-id">{item.external_id}</span></td>
+                    )}
+                    {visibleCols.has('name') && (
+                      <td className="ti-technique-name">{item.name}</td>
+                    )}
+                    {visibleCols.has('domain') && (
+                      <td>
+                        <span className={`ti-domain-badge ti-domain-${item.domain}`}>
+                          {DOMAIN_LABELS[item.domain] || item.domain}
+                        </span>
+                      </td>
+                    )}
+                    {visibleCols.has('tactics') && (
+                      <td><PillList items={item.tactics} className="ti-pill-tactic" max={3} /></td>
+                    )}
+                    {/* BUG 4: AI Assist column cell — clicking does not expand row */}
+                    {visibleCols.has('ai_assist') && (
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <button
+                          className="ti-ask-ai-btn"
+                          title={`Ask AI about ${item.external_id}`}
+                          onClick={() => onAskAI?.(item)}
+                        >
+                          ⊙ Ask AI
+                        </button>
+                      </td>
+                    )}
                   </tr>
                   {expanded === item.id && (
                     <tr key={`${item.id}-d`} className="ti-detail-row">
-                      <td colSpan={4}>
+                      <td colSpan={colSpan}>
                         <div className="ti-detail-panel">
                           <div className="ti-detail-header">
                             <span className="mono ti-technique-id">{item.external_id}</span>
@@ -399,7 +520,8 @@ function MitreTab() {
                     </tr>
                   )}
                 </>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         )}
@@ -666,6 +788,7 @@ function MessageBubble({ msg }) {
       <div className="chat-bubble-content">
         {isAssistant ? renderAssistantContent(msg.content) : msg.content}
       </div>
+      {/* TODO: citation links — see BUG 3 in agent prompt */}
       {msg.created_at && <RelativeTime iso={msg.created_at} />}
     </div>
   )
@@ -730,7 +853,9 @@ function SessionItem({ session, active, onClick, onRename, onDelete }) {
 }
 
 // ---- RAG panel ----
-function RagPanel({ status }) {
+// BUG 2 FIX: accepts sessionSources (per-session counts) alongside global status.
+// Shows "In this session: N" / "Total indexed: N" for MITRE and NVD cards.
+function RagPanel({ status, sessionSources }) {
   if (!status) {
     return (
       <div className="ti-rag-panel">
@@ -757,6 +882,10 @@ function RagPanel({ status }) {
 
   const domainLabels = { 'enterprise-attack': 'Enterprise', 'mobile-attack': 'Mobile', 'ics-attack': 'ICS' }
 
+  // Per-session counts (null when no session is active)
+  const sessionMitre = sessionSources?.mitre ?? null
+  const sessionNvd   = sessionSources?.nvd   ?? null
+
   return (
     <div className="ti-rag-panel">
       <div className="ti-rag-title">
@@ -769,6 +898,15 @@ function RagPanel({ status }) {
         <div className="ti-rag-card-header">
           <span className={`ti-rag-dot ${mitre?.count > 0 ? 'ti-rag-dot-green' : 'ti-rag-dot-red'}`} />
           <span className="ti-rag-card-title">MITRE ATT&amp;CK</span>
+        </div>
+        {sessionMitre !== null && (
+          <div className="ti-rag-session-row">
+            <span className="ti-rag-session-label">In this session</span>
+            <span className="ti-rag-session-count">{sessionMitre.count.toLocaleString()}</span>
+          </div>
+        )}
+        <div className="ti-rag-session-row ti-rag-session-row-total">
+          <span className="ti-rag-session-label">Total indexed</span>
           <span className="ti-rag-count">{(mitre?.count ?? 0).toLocaleString()}</span>
         </div>
         <div className="ti-rag-meta">{syncLabel(mitre?.last_sync)}</div>
@@ -788,6 +926,15 @@ function RagPanel({ status }) {
         <div className="ti-rag-card-header">
           <span className={`ti-rag-dot ${nvd?.count > 0 ? 'ti-rag-dot-green' : 'ti-rag-dot-red'}`} />
           <span className="ti-rag-card-title">NVD CVEs</span>
+        </div>
+        {sessionNvd !== null && (
+          <div className="ti-rag-session-row">
+            <span className="ti-rag-session-label">In this session</span>
+            <span className="ti-rag-session-count">{sessionNvd.count.toLocaleString()}</span>
+          </div>
+        )}
+        <div className="ti-rag-session-row ti-rag-session-row-total">
+          <span className="ti-rag-session-label">Total indexed</span>
           <span className="ti-rag-count">{(nvd?.count ?? 0).toLocaleString()}</span>
         </div>
         <div className="ti-rag-meta">{syncLabel(nvd?.last_sync)}</div>
@@ -830,7 +977,8 @@ function RagPanel({ status }) {
 }
 
 // ---- Main AssistantTab ----
-function AssistantTab() {
+// BUG 4: accepts preFill from parent (set when user clicks "Ask AI" in MITRE table)
+function AssistantTab({ preFill = '', onClearPreFill }) {
   const [sessions, setSessions] = useState([])
   const [activeSessionId, setActiveSessionId] = useState(null)
   const [messages, setMessages] = useState([])
@@ -840,9 +988,21 @@ function AssistantTab() {
   const [ragStatus, setRagStatus] = useState(null)
   const [ragOpen, setRagOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768)
+  // BUG 2 FIX: per-session source counts, updated whenever active session changes
+  const [sessionSources, setSessionSources] = useState(null)
   const pollRef = useRef(null)
   const bottomRef = useRef(null)
   const textareaRef = useRef(null)
+
+  // BUG 4: when parent sends a pre-fill question (from MITRE "Ask AI" button),
+  // set it as the textarea value.
+  useEffect(() => {
+    if (preFill) {
+      setInput(preFill)
+      onClearPreFill?.()
+      textareaRef.current?.focus()
+    }
+  }, [preFill, onClearPreFill])
 
   // Load sessions + RAG status on mount
   useEffect(() => {
@@ -852,10 +1012,17 @@ function AssistantTab() {
     return () => clearInterval(ragInterval)
   }, [])
 
-  // Load messages when active session changes
+  // Load messages AND per-session sources when active session changes.
+  // BUG 2 FIX: loadSessionSources is called here (not just on load) so counts
+  // update correctly whenever the user switches sessions.
   useEffect(() => {
-    if (activeSessionId) loadMessages(activeSessionId)
-    else setMessages([])
+    if (activeSessionId) {
+      loadMessages(activeSessionId)
+      loadSessionSources(activeSessionId)
+    } else {
+      setMessages([])
+      setSessionSources(null)
+    }
   }, [activeSessionId])
 
   // Scroll to bottom on new messages / typing indicator
@@ -892,6 +1059,14 @@ function AssistantTab() {
     try {
       const { data } = await client.get('/chat/rag-status/')
       setRagStatus(data)
+    } catch (_) {}
+  }
+
+  // BUG 2 FIX: load per-session source citations from the new endpoint.
+  const loadSessionSources = async (sessionId) => {
+    try {
+      const { data } = await client.get(`/chat/sessions/${sessionId}/sources/`)
+      setSessionSources(data)
     } catch (_) {}
   }
 
@@ -973,6 +1148,8 @@ function AssistantTab() {
               { role: 'assistant', content: taskData.reply, created_at: new Date().toISOString() },
             ])
             setLoading(false)
+            // BUG 2 FIX: refresh per-session sources now that citations were stored
+            loadSessionSources(sessionId)
           } else if (taskData.status === 'error') {
             clearInterval(pollRef.current)
             pollRef.current = null
@@ -988,7 +1165,17 @@ function AssistantTab() {
         }
       }, 800)
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to send message. Check that the LLM service is running.')
+      const status = err.response?.status
+      const serverMsg = err.response?.data?.error
+      if (serverMsg) {
+        setError(serverMsg)
+      } else if (!err.response) {
+        setError('Lost connection to the server. Is the backend running?')
+      } else if (status === 502 || status === 503 || status === 504) {
+        setError('The server is temporarily unavailable — it may still be starting up or loading AI models. Please try again in a few seconds.')
+      } else {
+        setError(`Request failed (HTTP ${status}). Check the server logs for details.`)
+      }
       setLoading(false)
     }
   }, [input, loading, activeSessionId])
@@ -1123,7 +1310,7 @@ function AssistantTab() {
       </div>
 
       {/* ---- RAG Panel ---- */}
-      {ragOpen && <RagPanel status={ragStatus} />}
+      {ragOpen && <RagPanel status={ragStatus} sessionSources={sessionSources} />}
     </div>
   )
 }
@@ -1140,6 +1327,18 @@ const TABS = [
 
 export default function ThreatIntelPage() {
   const [activeTab, setActiveTab] = useState('mitre')
+  // BUG 4: when user clicks "Ask AI" on a MITRE technique, pre-fill the chat
+  // input and switch to the assistant tab.  Lifted here so MitreTab can trigger
+  // it without needing direct access to AssistantTab's state.
+  const [assistantPreFill, setAssistantPreFill] = useState('')
+
+  const handleAskAI = (technique) => {
+    setAssistantPreFill(
+      `Explain the MITRE ATT\u0026CK technique ${technique.external_id} (${technique.name}) — ` +
+      `what does it do, how is it detected, and what mitigations exist?`
+    )
+    setActiveTab('assistant')
+  }
 
   return (
     <div className="ti-page">
@@ -1163,9 +1362,14 @@ export default function ThreatIntelPage() {
       </div>
 
       <div className="ti-tab-panel">
-        {activeTab === 'mitre' && <MitreTab />}
+        {activeTab === 'mitre' && <MitreTab onAskAI={handleAskAI} />}
         {activeTab === 'cves'  && <CveTab />}
-        {activeTab === 'assistant' && <AssistantTab />}
+        {activeTab === 'assistant' && (
+          <AssistantTab
+            preFill={assistantPreFill}
+            onClearPreFill={() => setAssistantPreFill('')}
+          />
+        )}
       </div>
     </div>
   )

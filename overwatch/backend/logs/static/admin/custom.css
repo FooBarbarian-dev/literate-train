@@ -137,6 +137,52 @@ pre.json-pretty {
     white-space: nowrap;
 }
 
+/* threat_intel — MITRE external_id */
+.column-external_id {
+    width: 90px;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+/* threat_intel — CVE id */
+.column-cve_id {
+    width: 160px;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+/* threat_intel — thread_id (integer) */
+.column-thread_id {
+    width: 80px;
+    text-align: right;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 0.85rem;
+}
+
+/* threat_intel — source count in ChatSessionAdmin */
+.column-source_count {
+    width: 70px;
+    text-align: right;
+}
+
+/* threat_intel — record_id (CVE / ATT&CK ID) */
+.column-record_id {
+    width: 140px;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+/* threat_intel — source_link URL — truncate long URLs */
+.column-source_link {
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* ==========================================================================
    6. General list-view polish
    ========================================================================== */
@@ -149,6 +195,7 @@ pre.json-pretty {
 /* No-wrap on date/time columns to prevent ugly line breaks */
 .column-timestamp,
 .column-created_at,
+.column-updated_at,
 .column-upload_date,
 .column-tagged_at,
 .column-last_seen,
@@ -156,7 +203,10 @@ pre.json-pretty {
 .column-assigned_at,
 .column-expires_at,
 .column-last_used,
-.column-last_accessed {
+.column-last_accessed,
+.column-retrieved_at,
+.column-published_date,
+.column-ingested_at {
     white-space: nowrap;
 }
 

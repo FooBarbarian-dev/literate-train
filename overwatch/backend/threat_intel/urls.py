@@ -5,6 +5,7 @@ from threat_intel.views import (
     ChatSessionDetailView,
     ChatSessionListCreateView,
     ChatSessionMessagesView,
+    ChatSessionSourcesView,
     ChatTaskStatusView,
     MitreFacetsView,
     MitreTechniqueListView,
@@ -24,6 +25,7 @@ urlpatterns = [
     path("api/chat/sessions/", ChatSessionListCreateView.as_view(), name="chat-sessions"),
     path("api/chat/sessions/<int:pk>/", ChatSessionDetailView.as_view(), name="chat-session-detail"),
     path("api/chat/sessions/<int:pk>/messages/", ChatSessionMessagesView.as_view(), name="chat-session-messages"),
+    path("api/chat/sessions/<int:pk>/sources/", ChatSessionSourcesView.as_view(), name="chat-session-sources"),
     # Celery task polling
     path("api/chat/tasks/<str:task_id>/", ChatTaskStatusView.as_view(), name="chat-task-status"),
     # RAG context panel data

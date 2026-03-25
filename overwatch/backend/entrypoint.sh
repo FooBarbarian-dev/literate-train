@@ -57,7 +57,11 @@ else:
 fi
 
 echo "==> Starting Gunicorn..."
+# Default to 1 web worker: heavy AI work (sentence-transformers, Chroma,
+# LLM inference) runs in the celery_worker container, not here.  Two gunicorn
+# workers would double the RSS for little benefit.  Override with
+# WEB_CONCURRENCY in the .env if you need more throughput for the REST API.
 exec gunicorn backend.asgi:application \
-    -w ${WEB_CONCURRENCY:-2} \
+    -w ${WEB_CONCURRENCY:-1} \
     -k uvicorn.workers.UvicornWorker \
     --bind 0.0.0.0:3001
