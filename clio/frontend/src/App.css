@@ -1466,7 +1466,7 @@ a:hover {
 .ti-msf-dropdown {
   position: absolute;
   top: calc(100% + 4px);
-  left: 0;
+  left: 0; /* overridden by .ti-msf-right .ti-msf-dropdown */
   z-index: 300;
   min-width: 200px;
   max-width: 280px;
@@ -1555,9 +1555,37 @@ a:hover {
   padding: 1px 6px;
 }
 
+/* Right-aligned dropdown (for columns near the right edge) */
+.ti-msf-right .ti-msf-dropdown {
+  left: auto;
+  right: 0;
+}
+
 /* Date filter specific */
 .ti-date-dropdown {
   min-width: 220px;
+}
+
+/* Chat tab — fits within the page without overflowing */
+.ti-chat-tab {
+  display: flex;
+  flex-direction: column;
+  /* navbar(56) + page padding-top(28) + header(~46) + header-mb(14) + tabs(~38) + tabs-mb(20) */
+  height: calc(100vh - 210px);
+}
+
+.ti-chat-tab .chat-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ti-chat-tab .chat-input-bar {
+  flex-shrink: 0;
+  padding-bottom: 16px;
 }
 
 .ti-date-custom {

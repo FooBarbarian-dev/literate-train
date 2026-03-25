@@ -61,11 +61,13 @@ function Pagination({ page, totalPages, onPage }) {
 // MultiSelectFilter — Excel-style checkbox dropdown attached to a column header
 // ---------------------------------------------------------------------------
 
-function MultiSelectFilter({ label, options, selected, onChange }) {
+function MultiSelectFilter({ label, options, selected, onChange, alignRight = false }) {
   const [open, setOpen] = useState(false)
   const [localSearch, setLocalSearch] = useState('')
   const ref = useRef(null)
   const active = selected.length > 0
+  // Deduplicate options by value
+  const uniqueOptions = options.filter((o, i, arr) => arr.findIndex((x) => x.value === o.value) === i)
 
   useEffect(() => {
     const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
@@ -77,11 +79,11 @@ function MultiSelectFilter({ label, options, selected, onChange }) {
     onChange(selected.includes(val) ? selected.filter((v) => v !== val) : [...selected, val])
 
   const filtered = localSearch
-    ? options.filter((o) => o.label.toLowerCase().includes(localSearch.toLowerCase()))
-    : options
+    ? uniqueOptions.filter((o) => o.label.toLowerCase().includes(localSearch.toLowerCase()))
+    : uniqueOptions
 
   return (
-    <span className="ti-msf" ref={ref}>
+    <span className={`ti-msf${alignRight ? ' ti-msf-right' : ''}`} ref={ref}>
       <button
         className={`ti-msf-btn${active ? ' ti-msf-active' : ''}`}
         onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}
@@ -95,7 +97,7 @@ function MultiSelectFilter({ label, options, selected, onChange }) {
             <span className="ti-msf-title">Filter: {label}</span>
             {active && <button className="ti-msf-clear" onClick={() => onChange([])}>Clear</button>}
           </div>
-          {options.length > 8 && (
+          {uniqueOptions.length > 8 && (
             <input
               className="ti-msf-search"
               placeholder="Search…"
@@ -145,7 +147,7 @@ function dateFromPreset(preset) {
   return ''
 }
 
-function DateFilter({ dateFilter, onChange }) {
+function DateFilter({ dateFilter, onChange, alignRight = false }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const active = !!(dateFilter.preset && dateFilter.preset !== '')
@@ -165,7 +167,7 @@ function DateFilter({ dateFilter, onChange }) {
   }
 
   return (
-    <span className="ti-msf" ref={ref}>
+    <span className={`ti-msf${alignRight ? ' ti-msf-right' : ''}`} ref={ref}>
       <button
         className={`ti-msf-btn${active ? ' ti-msf-active' : ''}`}
         onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}
@@ -495,11 +497,11 @@ function CveTab() {
                 <th>Description</th>
                 <FilterSortTh
                   col="cvss_score" label="CVSS" sort={sort} onSort={handleSort} style={{ width: 100 }}
-                  filter={<MultiSelectFilter label="CVSS" options={CVSS_SEVERITY_OPTIONS} selected={cvssFilter} onChange={setCvssFilter} />}
+                  filter={<MultiSelectFilter label="CVSS" options={CVSS_SEVERITY_OPTIONS} selected={cvssFilter} onChange={setCvssFilter} alignRight />}
                 />
                 <FilterSortTh
                   col="published_date" label="Published" sort={sort} onSort={handleSort} style={{ width: 140 }}
-                  filter={<DateFilter dateFilter={dateFilter} onChange={setDateFilter} />}
+                  filter={<DateFilter dateFilter={dateFilter} onChange={setDateFilter} alignRight />}
                 />
               </tr>
             </thead>
@@ -616,7 +618,7 @@ function AssistantTab() {
   }
 
   return (
-    <div className="chat-page">
+    <div className="ti-chat-tab">
       <div className="chat-body">
         {messages.length === 0 ? (
           <div className="chat-empty">
