@@ -55,6 +55,7 @@ services:
       - evidence_files:/app/evidence
       - ./overwatch/backend/data:/app/data
       - ./overwatch/backend/exports:/app/exports
+      - threat_data:/app/threat_data
     depends_on:
       db:
         condition: service_healthy
@@ -85,6 +86,7 @@ services:
     volumes:
       - evidence_files:/app/evidence
       - ./overwatch/backend/data:/app/data
+      - threat_data:/app/threat_data
     depends_on:
       - redis
       - db
@@ -149,3 +151,4 @@ volumes:
   redis_data:
   postgres_data:
   evidence_files:
+  threat_data:

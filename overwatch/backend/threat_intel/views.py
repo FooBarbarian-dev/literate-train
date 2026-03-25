@@ -435,6 +435,10 @@ class ChatSessionMessagesView(APIView):
                 .order_by("created_at")
                 .values("message", "created_at")
             )
+            # Only surface human/AI turns — skip tool calls and tool results
+            # (type "tool", "function", "function_call") which are internal
+            # implementation details that clutter the chat UI.
+            _VISIBLE_TYPES = {"human", "ai"}
             _role_map = {"human": "user", "ai": "assistant"}
             data = []
             for m in qs:
@@ -443,11 +447,17 @@ class ChatSessionMessagesView(APIView):
                     if isinstance(raw, str):
                         raw = _json.loads(raw)
                     msg_type = raw.get("type", "")
+                    if msg_type not in _VISIBLE_TYPES:
+                        continue
                     content = (
                         raw.get("data", {}).get("content")
                         or raw.get("content")
                         or ""
                     )
+                    # AI messages may have content=None when they only contain
+                    # tool_calls; skip those too.
+                    if not content:
+                        continue
                     data.append(
                         {
                             "role": _role_map.get(msg_type, msg_type),

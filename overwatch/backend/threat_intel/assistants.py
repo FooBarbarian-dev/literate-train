@@ -114,27 +114,39 @@ class CveAttackAssistant(AIAssistant):
         self,
         query: str,
         model_name: Optional[str] = None,
+        limit: int = 10,
     ) -> str:
         """
         Search the application's live Django database for records matching
         the given query string.
 
         Args:
-            query: Natural-language search term (e.g. "powershell execution").
-            model_name: Optional model to search. One of: Log, Tag, Operation,
+            query: Keyword to search for (e.g. "powershell", "CVE-2021").
+                   Pass an empty string "" to retrieve the most recent records
+                   without filtering — useful for "show me recent activity"
+                   style questions.
+            model_name: Model to search. One of: Log, Tag, Operation,
                 EvidenceFile, LogTemplate, Relation, FileStatus, LogRelationship,
                 TagRelationship.  Defaults to Log if omitted.
+            limit: Maximum number of records to return (default 10, max 50).
 
         Returns:
-            Formatted string of up to 10 matching records (sensitive fields
-            automatically removed), or a helpful error message.
+            Formatted string of matching records (sensitive fields stripped),
+            ordered by most-recent first, or a helpful error message.
+
+        Tips:
+            - For "recent activity" queries, use query="" to get the latest records.
+            - To search across operations, set model_name="operation".
+            - CVE and ATT&CK technique data comes from the RAG vector store, not
+              this tool — only use this tool for red-team log/operation data.
         """
         from django.apps import apps
         from django.db.models import Q
 
         target = (model_name or "log").strip().lower()
+        limit = max(1, min(limit, 50))
 
-        logger.info("DB tool query  model=%s  query=%r", target, query[:120])
+        logger.info("DB tool query  model=%s  query=%r  limit=%d", target, query[:120], limit)
 
         if target not in _SEARCHABLE_MODELS:
             available = ", ".join(
@@ -146,10 +158,8 @@ class CveAttackAssistant(AIAssistant):
             )
 
         app_label = _SEARCHABLE_MODELS[target]
-        # Django model names are title-case
         model_class = apps.get_model(app_label, target.title().replace("id", "ID"))
 
-        # Collect text-like fields that are not sensitive
         _TEXT_TYPES = frozenset({"CharField", "TextField", "GenericIPAddressField"})
         text_fields = [
             f.name
@@ -161,18 +171,20 @@ class CveAttackAssistant(AIAssistant):
             )
         ]
 
-        if not text_fields:
-            return (
-                f"No searchable text fields in {target.title()} "
-                "(or all text fields are sensitive)."
-            )
+        # Determine ordering: prefer created_at DESC, fall back to -pk
+        field_names = {f.name for f in model_class._meta.get_fields() if hasattr(f, "name")}
+        order_by = "-created_at" if "created_at" in field_names else "-pk"
 
-        # Build OR query across all eligible text fields
-        q_filter = Q()
-        for field in text_fields:
-            q_filter |= Q(**{f"{field}__icontains": query})
-
-        qs = model_class.objects.filter(q_filter)[:10]
+        query = (query or "").strip()
+        if query:
+            # Keyword search across all eligible text fields
+            q_filter = Q()
+            for field in text_fields:
+                q_filter |= Q(**{f"{field}__icontains": query})
+            qs = model_class.objects.filter(q_filter).order_by(order_by)[:limit]
+        else:
+            # No query — return most recent records
+            qs = model_class.objects.all().order_by(order_by)[:limit]
 
         result_count = len(qs)
         logger.info(
@@ -183,8 +195,13 @@ class CveAttackAssistant(AIAssistant):
         )
 
         if not qs:
-            return f"No {target.title()} records found matching '{query}'."
+            if query:
+                return f"No {target.title()} records found matching '{query}'."
+            return f"No {target.title()} records found in the database."
 
+        # Build display fields: all non-sensitive text + numeric fields
+        _DISPLAY_TYPES = _TEXT_TYPES | frozenset({"IntegerField", "BigIntegerField",
+                                                   "FloatField", "DateTimeField", "DateField"})
         lines: list[str] = []
         for obj in qs:
             parts: list[str] = []
@@ -192,14 +209,12 @@ class CveAttackAssistant(AIAssistant):
                 if not hasattr(f, "get_internal_type"):
                     continue
                 if is_sensitive_field(f.name):
-                    continue  # unconditionally strip sensitive fields
-                if f.get_internal_type() in _TEXT_TYPES:
+                    continue
+                if f.get_internal_type() in _DISPLAY_TYPES:
                     value = getattr(obj, f.name, None)
-                    if value:
+                    if value is not None and value != "":
                         parts.append(f"{f.name}={str(value)[:120]!r}")
-            lines.append(
-                f"{target.title()}(pk={obj.pk}): {', '.join(parts)}"
-            )
+            lines.append(f"{target.title()}(pk={obj.pk}): {', '.join(parts)}")
 
         return "\n".join(lines)
 
