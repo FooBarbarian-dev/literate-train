@@ -63,10 +63,10 @@ docker compose up --build -d
 ```
 
 The backend container automatically:
-- Wait for the database to be ready
-- Run Django migrations
-- Collect static files (for Django admin CSS)
-- Seed initial admin/user passwords into Redis
+- Waits for the database to be ready
+- Runs Django migrations
+- Collects static files (for Django admin CSS)
+- Seeds initial admin/user passwords into Redis
 
 No manual `migrate` or `seed` step required.
 
@@ -207,7 +207,7 @@ supported:
 | `sentence-transformers` | Downloads and runs `BAAI/bge-small-en-v1.5` locally (~130 MB) | No embed model on vLLM, or you want reproducible offline embeddings |
 
 ```dotenv
-# In backend/.env — one of: auto | vllm | sentence-transformers
+# In clio/backend/.env — one of: auto | vllm | sentence-transformers
 THREAT_RAG_EMBEDDING_BACKEND=auto
 ```
 
@@ -360,11 +360,12 @@ stripped from all results unconditionally.
 
 ## Local Development
 
-Set up your environment with the conda env file from the [Quick Start](#quick-start):
+Set up your environment with the conda env file from the [Quick Start](#quick-start).
+All commands below assume you are at the repo root (`literate-train/`):
 
 ```bash
-conda env create -f environment.yml   # first time
-conda env update -f environment.yml   # after environment.yml changes
+conda env create -f clio/environment.yml   # first time
+conda env update -f clio/environment.yml   # after environment.yml changes
 conda activate clio
 ```
 
@@ -406,14 +407,20 @@ can also be installed individually inside Docker or CI:
 
 ### Running tests
 
+Run from `clio/backend/` where `pytest.ini` lives:
+
 ```bash
+cd clio/backend
 pytest                                # run test suite
 coverage run -m pytest && coverage report   # with coverage
 ```
 
 ### Linting
 
+Run from `clio/` where `pyproject.toml` lives:
+
 ```bash
+cd clio
 ruff check backend/ generate_env/     # fast linting
 ruff format backend/ generate_env/    # auto-format
 pylint backend/                       # deeper analysis
@@ -432,7 +439,7 @@ stripped out:
 1. **nginx + TLS** — add an nginx service, restore the HTTPS server block with
    TLS certs (Let's Encrypt or self-signed), and redirect HTTP → HTTPS.
 2. **Redis TLS + at-rest encryption** — restore `ssl=True` and the
-   `EncryptedRedis` AES-256-GCM wrapper in `backend/common/redis_client.py`;
+   `EncryptedRedis` AES-256-GCM wrapper in `clio/backend/common/redis_client.py`;
    add `REDIS_SSL=true` and `REDIS_ENCRYPTION_KEY` to env files.
 3. **PostgreSQL SSL** — re-add `ssl=on` and cert mounts to the `db` service.
 4. **Django security settings** — restore `SECURE_SSL_REDIRECT`, HSTS,
