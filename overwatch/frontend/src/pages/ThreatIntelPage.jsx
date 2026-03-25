@@ -1165,7 +1165,17 @@ function AssistantTab({ preFill = '', onClearPreFill }) {
         }
       }, 800)
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to send message. Check that the LLM service is running.')
+      const status = err.response?.status
+      const serverMsg = err.response?.data?.error
+      if (serverMsg) {
+        setError(serverMsg)
+      } else if (!err.response) {
+        setError('Lost connection to the server. Is the backend running?')
+      } else if (status === 502 || status === 503 || status === 504) {
+        setError('The server is temporarily unavailable — it may still be starting up or loading AI models. Please try again in a few seconds.')
+      } else {
+        setError(`Request failed (HTTP ${status}). Check the server logs for details.`)
+      }
       setLoading(false)
     }
   }, [input, loading, activeSessionId])

@@ -770,7 +770,7 @@ def _jsonl_line_count(path: Path) -> int:
         return 0
 
 
-def _check_vllm_online(base_url: str, timeout: float = 2.0) -> bool:
+def _check_vllm_online(base_url: str, timeout: float = 1.0) -> bool:
     """Probe vLLM /v1/models with a short timeout; return True if reachable."""
     try:
         import httpx
@@ -787,11 +787,22 @@ class RagStatusView(APIView):
 
     Returns live counts and sync timestamps for all RAG data sources.
     The frontend loads this once on page load and re-polls every 5 minutes.
+
+    The response is cached in Redis for 60 seconds to avoid hammering Chroma,
+    the vLLM probe, and the CVSS distribution queries on every panel render.
     """
 
     permission_classes = [IsAuthenticated]
+    _CACHE_KEY = "threat_intel:rag_status"
+    _CACHE_TTL = 60  # seconds
 
     def get(self, request: Request) -> Response:
+        from django.core.cache import cache as _cache
+
+        cached = _cache.get(self._CACHE_KEY)
+        if cached is not None:
+            return Response(cached)
+
         threat_data = Path(settings.BASE_DIR) / "threat_data"
         chroma_db = threat_data / "chroma_db"
 
@@ -852,22 +863,22 @@ class RagStatusView(APIView):
         vllm_base_url: str = getattr(settings, "VLLM_BASE_URL", "http://localhost:8000/v1")
         llm_online = _check_vllm_online(vllm_base_url)
 
-        return Response(
-            {
-                "mitre": {
-                    "count": mitre_count,
-                    "last_sync": mitre_last_sync,
-                    "domains": mitre_domains,
-                },
-                "nvd": {
-                    "count": nvd_count,
-                    "last_sync": nvd_last_sync,
-                    "cvss_distribution": cvss_dist,
-                },
-                "db_models": db_models_data,
-                "llm_online": llm_online,
-            }
-        )
+        payload = {
+            "mitre": {
+                "count": mitre_count,
+                "last_sync": mitre_last_sync,
+                "domains": mitre_domains,
+            },
+            "nvd": {
+                "count": nvd_count,
+                "last_sync": nvd_last_sync,
+                "cvss_distribution": cvss_dist,
+            },
+            "db_models": db_models_data,
+            "llm_online": llm_online,
+        }
+        _cache.set(self._CACHE_KEY, payload, timeout=self._CACHE_TTL)
+        return Response(payload)
 
 
 def _mtime_iso(path: Path) -> str | None:
