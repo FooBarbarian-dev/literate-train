@@ -1312,3 +1312,114 @@ a:hover {
     min-width: 100%;
   }
 }
+
+/* ============================================
+   EXPORT PAGE
+   ============================================ */
+
+.export-layout {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.export-panel {
+  flex: 1;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.export-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.export-panel-header h2 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.export-type-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.export-type-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.export-type-toggle {
+  gap: 4px;
+}
+
+.export-fields-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 32px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 16px;
+}
+
+.export-fields-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.export-field-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.export-field-row:hover {
+  background: var(--bg-hover);
+}
+
+.export-field-checkbox {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.export-field-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+.export-field-type {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.export-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 16px;
+}
+
+.export-count-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
