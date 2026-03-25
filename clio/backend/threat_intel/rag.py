@@ -105,6 +105,10 @@ def _huggingface_embeddings() -> "Embeddings":
 # Chroma collection helper
 # ---------------------------------------------------------------------------
 
+# Number of documents passed to each add_texts() call.  Large enough to keep
+# overhead low, small enough to avoid OOM with a local embedding model.
+_CHROMA_BATCH_SIZE = 500
+
 
 def _chroma_db_path() -> Path:
     return Path(settings.BASE_DIR) / "threat_data" / "chroma_db"
@@ -124,6 +128,71 @@ def _chroma_collection(collection_name: str, embeddings: "Embeddings"):
         collection_name=collection_name,
         embedding_function=embeddings,
     )
+
+
+def _add_new_texts_batched(
+    store,
+    texts: list[str],
+    metadatas: list[dict],
+    ids: list[str],
+    log=None,
+) -> int:
+    """
+    Add documents to *store* in batches, skipping any IDs already present.
+
+    Returns the number of new documents actually embedded and inserted.
+    Skipping existing IDs prevents duplicates on repeated runs.
+    """
+    if not texts:
+        return 0
+
+    # Find which candidate IDs are already in the collection.
+    # chromadb .get(include=[]) fetches only IDs — no embeddings loaded.
+    existing_ids: set[str] = set(
+        store._collection.get(ids=ids, include=[])["ids"]
+    )
+
+    new_texts, new_metas, new_ids = [], [], []
+    for text, meta, doc_id in zip(texts, metadatas, ids):
+        if doc_id not in existing_ids:
+            new_texts.append(text)
+            new_metas.append(meta)
+            new_ids.append(doc_id)
+
+    skipped = len(ids) - len(new_ids)
+    if skipped and log:
+        log(f"  Skipping {skipped:,} already-indexed chunks.")
+
+    try:
+        from tqdm import tqdm as _tqdm
+    except ImportError:
+        _tqdm = None
+
+    total = len(new_texts)
+    n_batches = (total + _CHROMA_BATCH_SIZE - 1) // _CHROMA_BATCH_SIZE
+    batch_iter = range(0, total, _CHROMA_BATCH_SIZE)
+
+    pbar = (
+        _tqdm(batch_iter, total=n_batches, unit="batch", desc="  Embedding")
+        if _tqdm
+        else None
+    )
+
+    added = 0
+    for i in batch_iter:
+        store.add_texts(
+            texts=new_texts[i : i + _CHROMA_BATCH_SIZE],
+            metadatas=new_metas[i : i + _CHROMA_BATCH_SIZE],
+            ids=new_ids[i : i + _CHROMA_BATCH_SIZE],
+        )
+        added += min(_CHROMA_BATCH_SIZE, total - i)
+        if pbar is not None:
+            pbar.update(1)
+
+    if pbar is not None:
+        pbar.close()
+
+    return added
 
 
 # ---------------------------------------------------------------------------
@@ -189,11 +258,13 @@ def build_vector_store(
                 }
             )
 
-    if mitre_texts:
-        mitre_store.add_texts(
-            texts=mitre_texts, metadatas=mitre_metas, ids=mitre_ids
-        )
-    log(f"Upserted {len(mitre_texts)} MITRE chunks into 'mitre_techniques' collection.")
+    added_mitre = _add_new_texts_batched(
+        mitre_store, mitre_texts, mitre_metas, mitre_ids, log=log
+    )
+    log(
+        f"Upserted {added_mitre:,} new MITRE chunks into 'mitre_techniques' collection "
+        f"({len(mitre_texts) - added_mitre:,} already present, skipped)."
+    )
 
     # ---- NVD CVEs ----
     log(f"Embedding {len(cves)} NVD CVEs…")
@@ -224,9 +295,13 @@ def build_vector_store(
                 }
             )
 
-    if cve_texts:
-        cve_store.add_texts(texts=cve_texts, metadatas=cve_metas, ids=cve_ids)
-    log(f"Upserted {len(cve_texts)} CVE chunks into 'nvd_cves' collection.")
+    added_cve = _add_new_texts_batched(
+        cve_store, cve_texts, cve_metas, cve_ids, log=log
+    )
+    log(
+        f"Upserted {added_cve:,} new CVE chunks into 'nvd_cves' collection "
+        f"({len(cve_texts) - added_cve:,} already present, skipped)."
+    )
 
 
 # ---------------------------------------------------------------------------

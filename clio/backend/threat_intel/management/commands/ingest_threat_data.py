@@ -210,6 +210,11 @@ class Command(BaseCommand):
     # -------------------------------------------------------------------------
 
     def _download_mitre(self, base: Path) -> list[dict]:
+        try:
+            from tqdm import tqdm as _tqdm
+        except ImportError:
+            _tqdm = None
+
         techniques: list[dict] = []
         errors = 0
 
@@ -227,23 +232,43 @@ class Command(BaseCommand):
                     )
 
                 try:
-                    resp = client.get(url, headers=headers)
-
-                    if resp.status_code == 304:
-                        self.stdout.write(f"  {domain}: unchanged (304), using cache.")
-                        data = json.loads(dest.read_text(encoding="utf-8"))
-                    elif resp.status_code == 200:
-                        dest.write_bytes(resp.content)
-                        data = resp.json()
-                        self.stdout.write(
-                            f"  {domain}: downloaded {len(resp.content):,} bytes."
-                        )
-                    else:
-                        self.stderr.write(
-                            f"  {domain}: unexpected HTTP {resp.status_code}, skipping."
-                        )
-                        errors += 1
-                        continue
+                    with client.stream("GET", url, headers=headers) as resp:
+                        if resp.status_code == 304:
+                            self.stdout.write(
+                                f"  {domain}: unchanged (304), using cache."
+                            )
+                            data = json.loads(dest.read_text(encoding="utf-8"))
+                        elif resp.status_code == 200:
+                            total = int(resp.headers.get("content-length", 0))
+                            pbar = (
+                                _tqdm(
+                                    total=total or None,
+                                    unit="B",
+                                    unit_scale=True,
+                                    desc=f"  {domain}",
+                                )
+                                if _tqdm
+                                else None
+                            )
+                            chunks: list[bytes] = []
+                            for chunk in resp.iter_bytes(chunk_size=65536):
+                                chunks.append(chunk)
+                                if pbar is not None:
+                                    pbar.update(len(chunk))
+                            if pbar is not None:
+                                pbar.close()
+                            raw = b"".join(chunks)
+                            dest.write_bytes(raw)
+                            data = json.loads(raw)
+                            self.stdout.write(
+                                f"  {domain}: downloaded {len(raw):,} bytes."
+                            )
+                        else:
+                            self.stderr.write(
+                                f"  {domain}: unexpected HTTP {resp.status_code}, skipping."
+                            )
+                            errors += 1
+                            continue
 
                 except httpx.RequestError as exc:
                     self.stderr.write(f"  {domain}: network error — {exc}")
@@ -317,18 +342,23 @@ class Command(BaseCommand):
         if api_key:
             headers["apiKey"] = api_key
 
+        try:
+            from tqdm import tqdm as _tqdm
+        except ImportError:
+            _tqdm = None
+
         cves: list[dict] = []
         start_index = 0
         total_results: int | None = None
         page_num = 0
         errors = 0
 
+        # Progress bar: total updated after first page reveals totalResults.
+        pbar = _tqdm(unit="CVE", desc="NVD download") if _tqdm else None
+
         with httpx.Client(timeout=60) as client:
             while True:
                 params["startIndex"] = start_index
-                self.stdout.write(
-                    f"  NVD page {page_num} (startIndex={start_index})…"
-                )
 
                 try:
                     resp = client.get(self.NVD_API_URL, params=params, headers=headers)
@@ -350,13 +380,15 @@ class Command(BaseCommand):
 
                 if total_results is None:
                     total_results = data.get("totalResults", 0)
-                    self.stdout.write(f"  NVD total results: {total_results:,}")
+                    self.stdout.write(f"NVD total results: {total_results:,}")
+                    if pbar is not None:
+                        pbar.total = total_results
+                        pbar.refresh()
 
                 page_cves = self._extract_cves(data)
                 cves.extend(page_cves)
-                self.stdout.write(
-                    f"  Page {page_num}: {len(page_cves)} CVEs extracted."
-                )
+                if pbar is not None:
+                    pbar.update(len(page_cves))
 
                 start_index += self.NVD_PAGE_SIZE
                 page_num += 1
@@ -366,6 +398,9 @@ class Command(BaseCommand):
 
                 # Mandatory NVD rate-limit sleep
                 time.sleep(sleep_secs)
+
+        if pbar is not None:
+            pbar.close()
 
         if errors == 0:
             now_ts = datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000")
