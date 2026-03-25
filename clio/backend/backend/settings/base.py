@@ -24,10 +24,12 @@ env = environ.Env(
     JWT_ALGORITHM=(str, "HS256"),
     JWT_ACCESS_TOKEN_LIFETIME_MINUTES=(int, 30),
     JWT_REFRESH_TOKEN_LIFETIME_DAYS=(int, 7),
-    AWS_ACCESS_KEY_ID=(str, ""),
-    AWS_SECRET_ACCESS_KEY=(str, ""),
-    AWS_STORAGE_BUCKET_NAME=(str, ""),
-    AWS_S3_REGION_NAME=(str, "us-east-1"),
+    # --- Threat Intel / RAG settings ---
+    VLLM_BASE_URL=(str, "http://localhost:8000/v1"),
+    VLLM_API_KEY=(str, "not-needed"),
+    VLLM_MODEL_NAME=(str, ""),
+    NVD_API_KEY=(str, ""),
+    THREAT_RAG_EMBEDDING_BACKEND=(str, "auto"),
 )
 
 environ.Env.read_env()  # reads .env if present
@@ -54,23 +56,28 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.postgres",
     # Third-party
     "rest_framework",
     "drf_spectacular",
     "django_filters",
     "corsheaders",
+    # Third-party: AI assistant
+    "django_ai_assistant",
     # Project apps
-    "accounts",
-    "logs",
-    "tags",
-    "operations",
-    "evidence",
-    "api_keys",
-    "ingest",
-    "export",
-    "sessions_mgmt",
-    "templates_mgmt",
-    "audit",
+    "threat_intel.apps.ThreatIntelConfig",
+    "accounts.apps.AccountsConfig",
+    "logs.apps.LogsConfig",
+    "tags.apps.TagsConfig",
+    "operations.apps.OperationsConfig",
+    "evidence.apps.EvidenceConfig",
+    "api_keys.apps.ApiKeysConfig",
+    "ingest.apps.IngestConfig",
+    "export.apps.ExportConfig",
+    "sessions_mgmt.apps.SessionsMgmtConfig",
+    "templates_mgmt.apps.TemplatesMgmtConfig",
+    "audit.apps.AuditConfig",
+    "relations.apps.RelationsConfig",
 ]
 
 MIDDLEWARE = [
@@ -120,9 +127,10 @@ DATABASES = {
         "PASSWORD": env("POSTGRES_PASSWORD"),
         "HOST": env("POSTGRES_HOST"),
         "PORT": env("POSTGRES_PORT"),
-        "CONN_MAX_AGE": 0,
-        "CONN_HEALTH_CHECKS": True,
         "OPTIONS": {
+            # pool=True uses psycopg3's built-in connection pool.
+            # CONN_MAX_AGE and CONN_HEALTH_CHECKS must NOT be set alongside
+            # pool=True — Django raises ImproperlyConfigured if they are.
             "pool": True,
         },
     }
@@ -254,26 +262,17 @@ JWT_ACCESS_TOKEN_LIFETIME_MINUTES = env("JWT_ACCESS_TOKEN_LIFETIME_MINUTES")
 JWT_REFRESH_TOKEN_LIFETIME_DAYS = env("JWT_REFRESH_TOKEN_LIFETIME_DAYS")
 
 # ---------------------------------------------------------------------------
-# AWS / S3 (optional)
+# Storage backends
 # ---------------------------------------------------------------------------
 
-AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID")
-AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY")
-AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME")
-AWS_S3_REGION_NAME = env("AWS_S3_REGION_NAME")
-
-# ---------------------------------------------------------------------------
-# Storage backends (django-storages)
-# ---------------------------------------------------------------------------
-
+# NOTE (PoC): Default storage uses the local filesystem. In production,
+# switch to S3Boto3Storage with proper AWS credentials and add boto3 +
+# django-storages to requirements.txt.
 STORAGES = {
     "default": {
-        "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
         "OPTIONS": {
-            "bucket_name": AWS_STORAGE_BUCKET_NAME,
-            "region_name": AWS_S3_REGION_NAME,
-            "access_key": AWS_ACCESS_KEY_ID,
-            "secret_key": AWS_SECRET_ACCESS_KEY,
+            "location": EVIDENCE_ROOT,
         },
     },
     "staticfiles": {
@@ -288,3 +287,15 @@ STORAGES = {
 CELERY_BROKER_URL = env("REDIS_URL", default="redis://localhost:6379/1")
 CELERY_RESULT_BACKEND = env("REDIS_URL", default="redis://localhost:6379/1")
 CELERY_TASK_SERIALIZER = "json"
+
+# ---------------------------------------------------------------------------
+# Threat Intel / RAG / vLLM
+# ---------------------------------------------------------------------------
+
+VLLM_BASE_URL = env("VLLM_BASE_URL")
+VLLM_API_KEY = env("VLLM_API_KEY")
+VLLM_MODEL_NAME = env("VLLM_MODEL_NAME")
+NVD_API_KEY = env("NVD_API_KEY")
+# "auto" probes vLLM; falls back to "sentence-transformers" if no embed model.
+# Force a backend with "vllm" or "sentence-transformers".
+THREAT_RAG_EMBEDDING_BACKEND = env("THREAT_RAG_EMBEDDING_BACKEND")

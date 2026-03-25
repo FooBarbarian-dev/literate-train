@@ -6,6 +6,7 @@ import LogsPage from './pages/LogsPage'
 import OperationsPage from './pages/OperationsPage'
 import TagsPage from './pages/TagsPage'
 import SettingsPage from './pages/SettingsPage'
+import ChatPage from './pages/ChatPage'
 
 function NavBar() {
   const { user, logout } = useAuth()
@@ -17,7 +18,13 @@ function NavBar() {
     { path: '/logs', label: 'Logs' },
     { path: '/operations', label: 'Operations' },
     { path: '/tags', label: 'Tags' },
+    { path: '/threat-intel', label: 'Threat Intel' },
     { path: '/settings', label: 'Settings' },
+  ]
+
+  const adminItems = [
+    { href: '/admin/', label: 'Admin' },
+    { href: '/api/schema/swagger-ui/', label: 'API Docs' },
   ]
 
   return (
@@ -38,6 +45,22 @@ function NavBar() {
             {item.label}
           </Link>
         ))}
+        {user.is_admin && (
+          <>
+            <span className="navbar-divider" />
+            {adminItems.map((item) => (
+              <a
+                key={item.href}
+                href={item.href}
+                className="navbar-link navbar-link-admin"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {item.label} &#8599;
+              </a>
+            ))}
+          </>
+        )}
       </div>
       <div className="navbar-user">
         <span className="navbar-username">{user.username || user.email || 'User'}</span>
@@ -101,6 +124,14 @@ function AppRoutes() {
             element={
               <ProtectedRoute>
                 <SettingsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/threat-intel"
+            element={
+              <ProtectedRoute>
+                <ChatPage />
               </ProtectedRoute>
             }
           />

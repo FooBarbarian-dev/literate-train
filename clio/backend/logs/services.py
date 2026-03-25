@@ -1,8 +1,12 @@
+import logging
 from datetime import datetime, timezone
 from typing import Optional
 
 from django.db import models
 
+logger = logging.getLogger(__name__)
+
+from accounts.authentication import user_is_admin
 from logs.encryption import encrypt_field
 from logs.models import Log
 from tags.models import LogTag
@@ -28,7 +32,7 @@ def create_log_with_encryption(serializer, user) -> Log:
 def update_log_with_encryption(log: Log, data: dict, user) -> Log:
     """Update log entry, handling encryption and lock checks."""
     # Check lock
-    if log.locked and log.locked_by != user.username and not user.is_admin:
+    if log.locked and log.locked_by != user.username and not user_is_admin(user):
         raise PermissionError("Log is locked by another user")
 
     # Encrypt secrets if being updated
@@ -70,7 +74,6 @@ def toggle_lock(log: Log, username: str, is_admin: bool) -> Log:
 def auto_tag_with_operation(log_id: int, username: str) -> None:
     """Auto-tag log with user's active operation tag."""
     try:
-        redis_client = get_encrypted_redis()
         active_op_tag_id = get_active_operation_tag(username)
         if active_op_tag_id:
             LogTag.objects.get_or_create(
@@ -79,25 +82,27 @@ def auto_tag_with_operation(log_id: int, username: str) -> None:
                 defaults={"tagged_by": username},
             )
     except Exception:
-        pass  # Failure should not block log creation
+        logger.exception("Failed to auto-tag log %s for user %s", log_id, username)
 
 
 def get_active_operation_tag(username: str) -> Optional[int]:
     """Get the tag ID of the user's active operation."""
     from operations.models import Operation, UserOperation
 
-    redis_client = get_encrypted_redis()
-
     # Check Redis cache first
-    cached = redis_client.get(f"user:{username}:active_operation")
-    if cached:
-        try:
-            op_id = int(cached)
-            op = Operation.objects.filter(id=op_id, is_active=True).first()
-            if op and op.tag_id:
-                return op.tag_id
-        except (ValueError, TypeError):
-            pass
+    try:
+        redis_client = get_encrypted_redis()
+        cached = redis_client.get(f"user:{username}:active_operation")
+        if cached:
+            try:
+                op_id = int(cached)
+                op = Operation.objects.filter(id=op_id, is_active=True).first()
+                if op and op.tag_id:
+                    return op.tag_id
+            except (ValueError, TypeError):
+                pass
+    except Exception:
+        logger.debug("Redis unavailable for active operation lookup, falling back to DB")
 
     # Fallback: get from database
     user_op = (

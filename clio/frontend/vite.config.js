@@ -11,10 +11,13 @@ export default defineConfig({
         target: 'http://backend:3001',
         changeOrigin: true,
       },
-      '/relation-service': {
-        target: 'http://relation-service:3002',
+      '/admin': {
+        target: 'http://backend:3001',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/relation-service/, ''),
+      },
+      '/static': {
+        target: 'http://backend:3001',
+        changeOrigin: true,
       },
     },
   },

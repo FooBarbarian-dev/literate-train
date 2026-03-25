@@ -1,7 +1,16 @@
 import { useState, useEffect, useCallback } from 'react'
 import client from '../api/client'
 
-function LogModal({ log, onClose, onSave }) {
+function tagStyle(tag) {
+  const color = tag.color || '#3b82f6'
+  return {
+    backgroundColor: color + '22',
+    color: color,
+    borderColor: color + '55',
+  }
+}
+
+function LogPanel({ log, onClose, onSave }) {
   const [form, setForm] = useState({
     hostname: log?.hostname || '',
     ip_address: log?.ip_address || '',
@@ -51,125 +60,132 @@ function LogModal({ log, onClose, onSave }) {
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>{log?.id ? 'Edit Log Entry' : 'New Log Entry'}</h2>
-          <button className="btn btn-ghost" onClick={onClose}>
-            &#10005;
-          </button>
+    <div className="log-panel">
+      <div className="log-panel-header">
+        <div className="log-panel-title">
+          {log?.id ? (
+            <>
+              <span className="log-panel-title-label">Edit Entry</span>
+              <span className="mono log-panel-title-host">{log.hostname}</span>
+            </>
+          ) : (
+            <span className="log-panel-title-label">New Log Entry</span>
+          )}
+        </div>
+        <button className="btn btn-ghost btn-sm" onClick={onClose} title="Close">
+          &#10005;
+        </button>
+      </div>
+
+      <form onSubmit={handleSubmit} className="log-panel-body">
+        {error && <div className="alert alert-error">{error}</div>}
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>Hostname</label>
+            <input
+              name="hostname"
+              value={form.hostname}
+              onChange={handleChange}
+              placeholder="target-host"
+              required
+            />
+          </div>
+          <div className="form-group">
+            <label>IP Address</label>
+            <input
+              name="ip_address"
+              value={form.ip_address}
+              onChange={handleChange}
+              placeholder="10.0.0.1"
+            />
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="modal-body">
-          {error && <div className="alert alert-error">{error}</div>}
-
-          <div className="form-row">
-            <div className="form-group">
-              <label>Hostname</label>
-              <input
-                name="hostname"
-                value={form.hostname}
-                onChange={handleChange}
-                placeholder="target-host"
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label>IP Address</label>
-              <input
-                name="ip_address"
-                value={form.ip_address}
-                onChange={handleChange}
-                placeholder="10.0.0.1"
-              />
-            </div>
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label>Action</label>
-              <input
-                name="action"
-                value={form.action}
-                onChange={handleChange}
-                placeholder="e.g., lateral_movement"
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label>Status</label>
-              <select name="status" value={form.status} onChange={handleChange}>
-                <option value="success">Success</option>
-                <option value="failure">Failure</option>
-                <option value="in_progress">In Progress</option>
-                <option value="blocked">Blocked</option>
-              </select>
-            </div>
-          </div>
-
+        <div className="form-row">
           <div className="form-group">
-            <label>Command</label>
-            <textarea
-              name="command"
-              value={form.command}
-              onChange={handleChange}
-              placeholder="Command executed..."
-              rows={3}
-              className="mono"
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Output</label>
-            <textarea
-              name="output"
-              value={form.output}
-              onChange={handleChange}
-              placeholder="Command output..."
-              rows={4}
-              className="mono"
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Notes</label>
-            <textarea
-              name="notes"
-              value={form.notes}
-              onChange={handleChange}
-              placeholder="Additional notes..."
-              rows={2}
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Tags (comma-separated)</label>
+            <label>Action</label>
             <input
-              name="tags"
-              value={form.tags}
+              name="action"
+              value={form.action}
               onChange={handleChange}
-              placeholder="persistence, privilege-escalation"
+              placeholder="e.g., lateral_movement"
+              required
             />
           </div>
-
-          <div className="modal-actions">
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={onClose}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={saving}
-            >
-              {saving ? 'Saving...' : log?.id ? 'Update' : 'Create'}
-            </button>
+          <div className="form-group">
+            <label>Status</label>
+            <select name="status" value={form.status} onChange={handleChange}>
+              <option value="success">Success</option>
+              <option value="failure">Failure</option>
+              <option value="in_progress">In Progress</option>
+              <option value="blocked">Blocked</option>
+            </select>
           </div>
-        </form>
-      </div>
+        </div>
+
+        <div className="form-group">
+          <label>Command</label>
+          <textarea
+            name="command"
+            value={form.command}
+            onChange={handleChange}
+            placeholder="Command executed..."
+            rows={3}
+            className="mono"
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Output</label>
+          <textarea
+            name="output"
+            value={form.output}
+            onChange={handleChange}
+            placeholder="Command output..."
+            rows={4}
+            className="mono"
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Notes</label>
+          <textarea
+            name="notes"
+            value={form.notes}
+            onChange={handleChange}
+            placeholder="Additional notes..."
+            rows={2}
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Tags (comma-separated)</label>
+          <input
+            name="tags"
+            value={form.tags}
+            onChange={handleChange}
+            placeholder="persistence, privilege-escalation"
+          />
+        </div>
+
+        <div className="log-panel-actions">
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={saving}
+          >
+            {saving ? 'Saving...' : log?.id ? 'Update' : 'Create'}
+          </button>
+        </div>
+      </form>
     </div>
   )
 }
@@ -181,12 +197,23 @@ export default function LogsPage() {
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [modalLog, setModalLog] = useState(null)
-  const [showModal, setShowModal] = useState(false)
+  const [showPanel, setShowPanel] = useState(false)
+  const [activeOperation, setActiveOperation] = useState(null)
   const [filters, setFilters] = useState({
     hostname: '',
     ip_address: '',
     status: '',
   })
+
+  useEffect(() => {
+    client
+      .get('/operations/operations/my-operations/')
+      .then((res) => {
+        const active = (res.data || []).find((op) => op.is_active)
+        setActiveOperation(active || null)
+      })
+      .catch(() => {})
+  }, [])
 
   const fetchLogs = useCallback(async () => {
     setLoading(true)
@@ -225,21 +252,21 @@ export default function LogsPage() {
 
   const handleNewLog = () => {
     setModalLog(null)
-    setShowModal(true)
+    setShowPanel(true)
   }
 
   const handleEditLog = (log) => {
     setModalLog(log)
-    setShowModal(true)
+    setShowPanel(true)
   }
 
-  const handleModalClose = () => {
-    setShowModal(false)
+  const handlePanelClose = () => {
+    setShowPanel(false)
     setModalLog(null)
   }
 
-  const handleModalSave = () => {
-    setShowModal(false)
+  const handlePanelSave = () => {
+    setShowPanel(false)
     setModalLog(null)
     fetchLogs()
   }
@@ -260,13 +287,38 @@ export default function LogsPage() {
   }
 
   return (
-    <div className="page">
+    <div className={`page logs-page${showPanel ? ' panel-open' : ''}`}>
       <div className="page-header">
         <h1>Log Entries</h1>
         <button className="btn btn-primary" onClick={handleNewLog}>
           + New Log
         </button>
       </div>
+
+      {activeOperation ? (
+        <div className="operation-banner">
+          <span className="operation-banner-label">Operation:</span>
+          <strong>{activeOperation.operation_name}</strong>
+          {activeOperation.tag_name && (
+            <span
+              className="tag"
+              style={{
+                backgroundColor: (activeOperation.tag_color || '#3B82F6') + '22',
+                color: activeOperation.tag_color || '#3B82F6',
+                borderColor: (activeOperation.tag_color || '#3B82F6') + '55',
+                marginLeft: '0.5rem',
+              }}
+            >
+              {activeOperation.tag_name}
+            </span>
+          )}
+        </div>
+      ) : (
+        <div className="operation-banner operation-banner-warn">
+          No active operation set &mdash; showing all logs.
+          <a href="/operations" style={{ marginLeft: '0.5rem' }}>Select one</a>
+        </div>
+      )}
 
       <div className="filters-bar">
         <input
@@ -299,98 +351,104 @@ export default function LogsPage() {
 
       {error && <div className="alert alert-error">{error}</div>}
 
-      {loading ? (
-        <div className="loading-inline">
-          <div className="loading-spinner" />
-          <span>Loading logs...</span>
-        </div>
-      ) : logs.length === 0 ? (
-        <div className="empty-state">
-          <p>No log entries found.</p>
-          <button className="btn btn-primary" onClick={handleNewLog}>
-            Create your first log
-          </button>
-        </div>
-      ) : (
-        <>
-          <div className="table-container">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Timestamp</th>
-                  <th>Hostname</th>
-                  <th>IP Address</th>
-                  <th>Action</th>
-                  <th>Status</th>
-                  <th>Tags</th>
-                  <th>Operator</th>
-                </tr>
-              </thead>
-              <tbody>
-                {logs.map((log) => (
-                  <tr
-                    key={log.id}
-                    onClick={() => handleEditLog(log)}
-                    className="clickable-row"
-                  >
-                    <td className="mono td-timestamp">
-                      {new Date(log.created_at || log.timestamp).toLocaleString()}
-                    </td>
-                    <td className="mono">{log.hostname}</td>
-                    <td className="mono">{log.ip_address}</td>
-                    <td>{log.action}</td>
-                    <td>
-                      <span className={`status-badge ${statusClass(log.status)}`}>
-                        {log.status}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="tag-list">
-                        {(log.tags || []).map((tag, i) => (
-                          <span key={i} className="tag">
-                            {tag.name || tag}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td>{log.operator?.username || log.operator || '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <div className="logs-content">
+        {loading ? (
+          <div className="loading-inline">
+            <div className="loading-spinner" />
+            <span>Loading logs...</span>
           </div>
-
-          {totalPages > 1 && (
-            <div className="pagination">
-              <button
-                className="btn btn-sm btn-ghost"
-                disabled={page <= 1}
-                onClick={() => setPage(page - 1)}
-              >
-                Previous
-              </button>
-              <span className="pagination-info">
-                Page {page} of {totalPages}
-              </span>
-              <button
-                className="btn btn-sm btn-ghost"
-                disabled={page >= totalPages}
-                onClick={() => setPage(page + 1)}
-              >
-                Next
-              </button>
+        ) : logs.length === 0 ? (
+          <div className="empty-state">
+            <p>No log entries found.</p>
+            <button className="btn btn-primary" onClick={handleNewLog}>
+              Create your first log
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="table-container">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Hostname</th>
+                    <th>IP Address</th>
+                    <th>Action</th>
+                    <th>Status</th>
+                    <th>Tags</th>
+                    <th>Operator</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {logs.map((log) => (
+                    <tr
+                      key={log.id}
+                      onClick={() => handleEditLog(log)}
+                      className={`clickable-row${modalLog?.id === log.id && showPanel ? ' row-selected' : ''}`}
+                    >
+                      <td className="mono td-timestamp">
+                        {new Date(log.created_at || log.timestamp).toLocaleString()}
+                      </td>
+                      <td className="mono">{log.hostname}</td>
+                      <td className="mono">{log.ip_address}</td>
+                      <td>{log.action}</td>
+                      <td>
+                        <span className={`status-badge ${statusClass(log.status)}`}>
+                          {log.status}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="tag-list">
+                          {(log.tags || []).map((tag, i) => (
+                            <span
+                              key={i}
+                              className="tag"
+                              style={tagStyle(tag)}
+                            >
+                              {tag.name || tag}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td>{log.operator?.username || log.operator || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
-        </>
-      )}
 
-      {showModal && (
-        <LogModal
-          log={modalLog}
-          onClose={handleModalClose}
-          onSave={handleModalSave}
-        />
-      )}
+            {totalPages > 1 && (
+              <div className="pagination">
+                <button
+                  className="btn btn-sm btn-ghost"
+                  disabled={page <= 1}
+                  onClick={() => setPage(page - 1)}
+                >
+                  Previous
+                </button>
+                <span className="pagination-info">
+                  Page {page} of {totalPages}
+                </span>
+                <button
+                  className="btn btn-sm btn-ghost"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage(page + 1)}
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {showPanel && (
+          <LogPanel
+            log={modalLog}
+            onClose={handlePanelClose}
+            onSave={handlePanelSave}
+          />
+        )}
+      </div>
     </div>
   )
 }
