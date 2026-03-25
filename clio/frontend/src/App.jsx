@@ -6,6 +6,7 @@ import LogsPage from './pages/LogsPage'
 import OperationsPage from './pages/OperationsPage'
 import TagsPage from './pages/TagsPage'
 import SettingsPage from './pages/SettingsPage'
+import ThreatIntelPage from './pages/ThreatIntelPage'
 import ChatPage from './pages/ChatPage'
 import ExportPage from './pages/ExportPage'
 
@@ -133,7 +134,7 @@ function AppRoutes() {
             path="/threat-intel"
             element={
               <ProtectedRoute>
-                <ChatPage />
+                <ThreatIntelPage />
               </ProtectedRoute>
             }
           />
