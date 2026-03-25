@@ -1077,6 +1077,230 @@ a:hover {
   }
 }
 
+/* ---- Tag Input (autocomplete with pills) ---- */
+.tag-input-container {
+  position: relative;
+  width: 100%;
+}
+
+.tag-input-area {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  min-height: 38px;
+  padding: 4px 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: text;
+  transition: border-color 0.15s;
+}
+
+.tag-input-area:focus-within {
+  border-color: var(--accent-primary);
+}
+
+.tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 4px;
+  border: 1px solid;
+  white-space: nowrap;
+  line-height: 1.6;
+}
+
+.tag-pill-remove {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 0;
+  opacity: 0.6;
+  transition: opacity 0.1s;
+}
+
+.tag-pill-remove:hover {
+  opacity: 1;
+}
+
+.tag-input-field {
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  min-width: 120px;
+  flex: 1;
+  padding: 2px 4px;
+  font-family: var(--font-sans);
+}
+
+.tag-input-field::placeholder {
+  color: var(--text-muted);
+}
+
+.tag-input-error {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--accent-red);
+}
+
+.tag-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  z-index: 200;
+  overflow: hidden;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.tag-dropdown-filter {
+  min-width: 200px;
+  right: auto;
+}
+
+.tag-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.1s;
+}
+
+.tag-dropdown-item:hover {
+  background: var(--bg-hover);
+}
+
+.tag-dropdown-badge {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+
+.tag-dropdown-empty {
+  padding: 8px 12px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.tag-dropdown-create {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--accent-primary);
+  border-top: 1px solid var(--border-color);
+  transition: background 0.1s;
+}
+
+.tag-dropdown-create:hover {
+  background: var(--bg-hover);
+}
+
+.tag-create-form {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  z-index: 200;
+  padding: 12px;
+}
+
+.tag-create-form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.tag-create-input {
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 7px 10px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-family: var(--font-sans);
+}
+
+.tag-create-input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}
+
+.tag-create-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* ---- Tag Filter (filter bar) ---- */
+.tag-filter-wrap {
+  position: relative;
+}
+
+.tag-filter-active {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  height: 36px;
+}
+
+.tag-filter-label {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.tag-filter-clear {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+  transition: color 0.1s;
+}
+
+.tag-filter-clear:hover {
+  color: var(--text-primary);
+}
+
 /* ---- Logs Card View ---- */
 .logs-view-tabs {
   display: flex;
