@@ -468,7 +468,7 @@ function LogCardRow({ log, expanded, onToggle, onEdit, onDelete, visibleFields }
         </button>
         <div className="tag-list">
           {(log.tags || []).map((tag, i) => (
-            <span key={i} className="tag" style={tagStyle(tag)}>
+            <span key={i} className="tag" style={tagStyle(tag)} title={tag.description || undefined}>
               {tag.name || tag}
             </span>
           ))}

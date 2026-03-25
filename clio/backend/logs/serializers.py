@@ -9,6 +9,7 @@ class TagBriefSerializer(serializers.Serializer):
     name = serializers.CharField()
     color = serializers.CharField()
     category = serializers.CharField(allow_null=True)
+    description = serializers.CharField(allow_blank=True, default="")
 
 
 class LogCreateSerializer(serializers.ModelSerializer):
