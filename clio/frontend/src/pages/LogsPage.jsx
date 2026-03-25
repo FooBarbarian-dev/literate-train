@@ -142,7 +142,7 @@ function TagInput({ selectedTags, onAdd, onRemove }) {
   }
 
   const handleCreateSubmit = async (e) => {
-    e.preventDefault()
+    e?.preventDefault()
     setCreating(true)
     setCreateError('')
     try {
@@ -233,12 +233,12 @@ function TagInput({ selectedTags, onAdd, onRemove }) {
           {createError && (
             <div className="alert alert-error" style={{ marginBottom: 8 }}>{createError}</div>
           )}
-          <form onSubmit={handleCreateSubmit}>
+          <div>
             <input
               value={createForm.name}
               onChange={(e) => setCreateForm((f) => ({ ...f, name: e.target.value }))}
+              onKeyDown={(e) => e.key === 'Enter' && handleCreateSubmit(e)}
               placeholder="Tag name"
-              required
               autoFocus
               className="tag-create-input"
             />
@@ -266,11 +266,11 @@ function TagInput({ selectedTags, onAdd, onRemove }) {
               <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowCreate(false)}>
                 Cancel
               </button>
-              <button type="submit" className="btn btn-primary btn-sm" disabled={creating}>
+              <button type="button" className="btn btn-primary btn-sm" disabled={creating} onClick={handleCreateSubmit}>
                 {creating ? 'Creating...' : 'Create'}
               </button>
             </div>
-          </form>
+          </div>
         </div>
       )}
     </div>
