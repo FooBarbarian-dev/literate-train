@@ -12,6 +12,7 @@ import logging
 import uuid
 
 from django.db.models import Q
+from rest_framework import filters as drf_filters
 from rest_framework import generics, serializers
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
@@ -157,13 +158,17 @@ class MitreTechniqueListView(generics.ListAPIView):
     GET /api/threat-intel/mitre/
 
     Query params:
-        search   – free-text search on name, external_id, description
-        domain   – filter by ATT&CK domain (enterprise-attack | mobile-attack | ics-attack)
-        tactic   – filter by tactic phrase (substring match)
+        search    – free-text search on name, external_id, description
+        domain    – filter by ATT&CK domain (enterprise-attack | mobile-attack | ics-attack)
+        tactic    – filter by tactic phrase (substring match)
+        ordering  – DRF ordering: external_id | name | domain | tactics (prefix - for desc)
     """
 
     permission_classes = [IsAuthenticated]
     serializer_class = MitreTechniqueSerializer
+    filter_backends = [drf_filters.OrderingFilter]
+    ordering_fields = ["external_id", "name", "domain", "tactics"]
+    ordering = ["external_id"]
 
     def get_queryset(self):
         qs = MitreTechnique.objects.all()
@@ -210,10 +215,14 @@ class NvdCveListView(generics.ListAPIView):
         search      – free-text search on cve_id, description, affected_products
         min_cvss    – minimum CVSS score (float)
         max_cvss    – maximum CVSS score (float)
+        ordering    – DRF ordering: cve_id | cvss_score | published_date (prefix - for desc)
     """
 
     permission_classes = [IsAuthenticated]
     serializer_class = NvdCveSerializer
+    filter_backends = [drf_filters.OrderingFilter]
+    ordering_fields = ["cve_id", "cvss_score", "published_date"]
+    ordering = ["-published_date"]
 
     def get_queryset(self):
         qs = NvdCve.objects.all()

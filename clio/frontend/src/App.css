@@ -1314,14 +1314,33 @@ a:hover {
 }
 
 /* ---- Threat Intel Page ---- */
+
+/* Page fills the viewport — no outer scroll */
 .ti-page {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 56px);
   max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px 32px 0;
+  overflow: hidden;
+}
+
+.ti-page-header {
+  flex-shrink: 0;
+  margin-bottom: 14px;
+}
+
+.ti-page-header h1 {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .ti-page-sub {
   font-size: 13px;
   color: var(--text-muted);
-  margin-top: 4px;
+  margin-top: 3px;
 }
 
 /* Tab bar */
@@ -1329,17 +1348,17 @@ a:hover {
   display: flex;
   gap: 2px;
   border-bottom: 2px solid var(--border-color);
-  margin-bottom: 24px;
+  flex-shrink: 0;
 }
 
 .ti-tab {
-  padding: 10px 20px;
+  padding: 8px 18px;
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
   margin-bottom: -2px;
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--text-secondary);
   cursor: pointer;
@@ -1358,15 +1377,93 @@ a:hover {
   background: rgba(59, 130, 246, 0.06);
 }
 
+/* Tab panel fills remaining height */
 .ti-tab-panel {
-  min-height: 400px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding-top: 14px;
 }
 
+/* Each tab's content is also a flex column */
 .ti-tab-content {
-  /* Filled by child tabs */
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
-/* MITRE technique ID chip */
+/* Toolbar (filters / search) never scrolls */
+.ti-toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  margin-bottom: 10px;
+}
+
+/* The table area scrolls internally */
+.ti-table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+}
+
+/* Sticky header stays visible while scrolling */
+.ti-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-tertiary);
+}
+
+/* Compact rows */
+.ti-table td,
+.ti-table th {
+  padding: 8px 12px;
+}
+
+/* Sortable column header */
+.ti-sortable-th {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.ti-sortable-th:hover {
+  color: var(--text-primary);
+}
+
+.ti-sort-active {
+  color: var(--accent-primary) !important;
+}
+
+.ti-sort-icon {
+  font-size: 10px;
+  opacity: 0.5;
+  margin-left: 2px;
+}
+
+.ti-sort-active .ti-sort-icon {
+  opacity: 1;
+}
+
+/* Pagination row below the table */
+.ti-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 8px 0 10px;
+  flex-shrink: 0;
+}
+
+/* MITRE technique ID */
 .ti-technique-id {
   color: var(--accent-purple);
   font-size: 12px;
@@ -1387,7 +1484,6 @@ a:hover {
 .ti-cve-desc {
   color: var(--text-secondary);
   font-size: 13px;
-  max-width: 480px;
 }
 
 /* Domain badge */
@@ -1419,14 +1515,13 @@ a:hover {
   border: 1px solid rgba(234, 179, 8, 0.25);
 }
 
-/* CVSS score badge */
+/* CVSS badge */
 .ti-cvss-badge {
   display: inline-block;
   padding: 3px 10px;
   border-radius: 10px;
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.3px;
 }
 
 .cvss-critical {
@@ -1457,7 +1552,7 @@ a:hover {
   color: var(--text-muted);
 }
 
-/* Tactic / platform pills */
+/* Pills */
 .ti-pills-cell {
   display: flex;
   flex-wrap: wrap;
@@ -1497,19 +1592,19 @@ a:hover {
   font-size: 12px;
 }
 
-/* Expandable detail panel */
+/* Expandable detail row */
 .ti-detail-row td {
   padding: 0 !important;
   border-bottom: 1px solid var(--border-color);
 }
 
 .ti-detail-panel {
-  padding: 16px 20px 20px;
+  padding: 14px 18px 16px;
   background: var(--bg-tertiary);
   border-top: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .ti-detail-header {
@@ -1520,11 +1615,11 @@ a:hover {
 }
 
 .ti-detail-header strong {
-  font-size: 15px;
+  font-size: 14px;
   color: var(--text-primary);
 }
 
-.ti-detail-row-meta {
+.ti-detail-meta {
   display: flex;
   gap: 12px;
   align-items: flex-start;
@@ -1536,27 +1631,27 @@ a:hover {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--text-muted);
-  min-width: 100px;
+  min-width: 80px;
+  flex-shrink: 0;
   padding-top: 3px;
 }
 
 .ti-detail-description {
   font-size: 13px;
-  line-height: 1.65;
+  line-height: 1.6;
   color: var(--text-secondary);
   white-space: pre-wrap;
-  max-height: 260px;
+  max-height: 200px;
   overflow-y: auto;
   border-left: 2px solid var(--border-light);
   padding-left: 12px;
 }
 
-/* CPE affected products */
 .ti-affected-products {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-height: 180px;
+  max-height: 130px;
   overflow-y: auto;
 }
 
@@ -1569,33 +1664,36 @@ a:hover {
   border: 1px solid var(--border-color);
 }
 
-/* Embedded chat inside tab */
-.ti-chat-embed {
-  height: calc(100vh - 220px);
-  max-width: 100%;
-  padding: 0;
-  margin: 0;
+/* Chat tab fills the panel */
+.ti-chat-wrap {
+  overflow: hidden;
 }
 
-.ti-chat-toolbar {
-  display: flex;
-  justify-content: flex-end;
-  padding-bottom: 8px;
-  min-height: 36px;
+.ti-chat-wrap .chat-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.ti-chat-wrap .chat-input-bar {
+  padding-bottom: 12px;
 }
 
 @media (max-width: 768px) {
+  .ti-page {
+    padding: 12px 16px 0;
+  }
+
   .ti-tabs {
     overflow-x: auto;
   }
 
   .ti-tab {
-    padding: 8px 14px;
-    font-size: 13px;
+    padding: 7px 12px;
     white-space: nowrap;
   }
 
-  .ti-detail-row-meta {
+  .ti-detail-meta {
     flex-direction: column;
     gap: 6px;
   }
