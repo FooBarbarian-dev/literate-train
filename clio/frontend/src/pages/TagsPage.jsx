@@ -175,7 +175,11 @@ export default function TagsPage() {
       ) : (
         <div className="tags-grid">
           {filteredTags.map((tag) => (
-            <div key={tag.id || tag.name} className="tag-card">
+            <div
+              key={tag.id || tag.name}
+              className="tag-card"
+              title={tag.description || undefined}
+            >
               <div className="tag-card-header">
                 <span
                   className="tag-dot"
