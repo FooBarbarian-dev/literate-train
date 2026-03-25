@@ -3,17 +3,20 @@ CVE & ATT&CK AI Assistant wired to a local vLLM endpoint.
 
 Uses two retrieval sources:
   1. Chroma vector store (MITRE ATT&CK techniques + NVD CVEs) via get_retriever()
-  2. Live Django ORM queries via the query_django_db @ai_assistant_tool
+  2. Live Django ORM queries via the query_django_db @method_tool
 """
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import Optional
 
-from django_ai_assistant import AIAssistant, ai_assistant_tool
+from django_ai_assistant import AIAssistant, method_tool
 
 from threat_intel.rag import get_retriever as _rag_get_retriever, is_sensitive_field
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Models available for DB tool queries (app_label → model_name mapping).
@@ -53,6 +56,7 @@ class CveAttackAssistant(AIAssistant):
 
         if not model:
             # Attempt to auto-detect the loaded model from the vLLM server
+            logger.debug("VLLM_MODEL_NAME not set, auto-detecting from %s", base_url)
             model = _detect_vllm_chat_model(base_url) or ""
 
         if not model:
@@ -62,11 +66,14 @@ class CveAttackAssistant(AIAssistant):
                 f"(VLLM_BASE_URL={base_url})."
             )
 
+        logger.info("LLM request  model=%s  base_url=%s", model, base_url)
+
         return ChatOpenAI(
             base_url=base_url,
             api_key=api_key,
             model=model,
             temperature=0.1,
+            request_timeout=120,
         )
 
     def get_retriever(self):
@@ -76,13 +83,15 @@ class CveAttackAssistant(AIAssistant):
         not been built yet.
         """
         try:
-            return _rag_get_retriever()
+            retriever = _rag_get_retriever()
+            logger.info(
+                "RAG retriever ready  collections=[mitre_techniques, nvd_cves]  k=3 each"
+            )
+            return retriever
         except Exception as exc:
             # If Chroma collections are empty (no ingestion yet), return a
             # no-op retriever rather than crashing.
-            import logging
-
-            logging.getLogger(__name__).warning(
+            logger.warning(
                 "RAG retriever unavailable: %s. "
                 "Run `manage.py ingest_threat_data` to build the index.",
                 exc,
@@ -100,7 +109,7 @@ class CveAttackAssistant(AIAssistant):
     # Django DB tool
     # -------------------------------------------------------------------------
 
-    @ai_assistant_tool
+    @method_tool
     def query_django_db(
         self,
         query: str,
@@ -124,6 +133,8 @@ class CveAttackAssistant(AIAssistant):
         from django.db.models import Q
 
         target = (model_name or "log").strip().lower()
+
+        logger.info("DB tool query  model=%s  query=%r", target, query[:120])
 
         if target not in _SEARCHABLE_MODELS:
             available = ", ".join(
@@ -163,6 +174,14 @@ class CveAttackAssistant(AIAssistant):
 
         qs = model_class.objects.filter(q_filter)[:10]
 
+        result_count = len(qs)
+        logger.info(
+            "DB tool result  model=%s  query=%r  hits=%d",
+            target,
+            query[:80],
+            result_count,
+        )
+
         if not qs:
             return f"No {target.title()} records found matching '{query}'."
 
@@ -201,7 +220,8 @@ def _detect_vllm_chat_model(base_url: str) -> str | None:
             model_id: str = model.get("id", "")
             model_type: str = model.get("model_type", "")
             if model_type != "embedding" and "embed" not in model_id.lower():
+                logger.debug("Auto-detected vLLM chat model: %s", model_id)
                 return model_id
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("vLLM model auto-detection failed: %s", exc)
     return None

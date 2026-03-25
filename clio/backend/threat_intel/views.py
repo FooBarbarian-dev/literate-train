@@ -8,12 +8,34 @@ Thread IDs are UUIDs; pass null / omit to start a new conversation.
 
 from __future__ import annotations
 
+import logging
+import time
 import uuid
 
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+logger = logging.getLogger(__name__)
+
+
+def _connection_error_types() -> tuple:
+    """Return a tuple of exception classes that represent connection failures."""
+    exc_types: list[type] = [ConnectionError]
+    try:
+        from openai import APIConnectionError
+
+        exc_types.append(APIConnectionError)
+    except ImportError:
+        pass
+    try:
+        from httpx import ConnectError
+
+        exc_types.append(ConnectError)
+    except ImportError:
+        pass
+    return tuple(exc_types)
 
 
 # ---------------------------------------------------------------------------
@@ -52,13 +74,40 @@ class ChatAPIView(APIView):
 
         thread_id: str | None = request.data.get("thread_id") or None
 
+        user_label = getattr(request.user, "username", None) or str(
+            getattr(request.user, "id", "anon")
+        )
+        logger.info(
+            "Chat request  user=%s  thread=%s  message=%r",
+            user_label,
+            thread_id or "(new)",
+            message[:120],
+        )
+
+        t0 = time.monotonic()
         try:
             reply, thread_id = _run_assistant(message, thread_id, request)
         except RuntimeError as exc:
             # Surface vLLM/config errors clearly
+            logger.error("Chat config/runtime error: %s", exc)
             return Response({"error": str(exc)}, status=503)
+        except (_connection_error_types()) as exc:
+            logger.exception("Chat assistant connection error")
+            return Response(
+                {"error": f"Unable to reach the AI model server: {exc}"},
+                status=503,
+            )
         except Exception as exc:
+            logger.exception("Chat assistant error")
             return Response({"error": f"Assistant error: {exc}"}, status=500)
+
+        elapsed = time.monotonic() - t0
+        logger.info(
+            "Chat response  thread=%s  elapsed=%.1fs  reply_len=%d",
+            thread_id,
+            elapsed,
+            len(reply),
+        )
 
         return Response({"reply": reply, "thread_id": thread_id})
 
@@ -83,26 +132,34 @@ def _run_assistant(
 
     assistant = CveAttackAssistant()
 
-    # Resolve user: use request.user if authenticated, else None (anonymous)
-    user = getattr(request, "user", None)
-    if user is not None and not user.is_authenticated:
-        user = None
+    # Resolve user: Thread.created_by is a FK to AUTH_USER_MODEL, so we can
+    # only pass a real Django User instance.  JWTUser (a dataclass used by
+    # the stateless JWT auth backend) is *not* a model and will cause
+    # ``ValueError`` if assigned.  Pass None in that case.
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    raw_user = getattr(request, "user", None)
+    db_user = raw_user if isinstance(raw_user, User) else None
 
     # Retrieve or create the conversation thread
     thread: Thread | None
     if thread_id:
         try:
             thread = Thread.objects.get(id=thread_id)
+            logger.debug("Resumed existing thread %s", thread_id)
         except Thread.DoesNotExist:
             thread = Thread.objects.create(
-                created_by=user, assistant_id=assistant.id
+                created_by=db_user, assistant_id=assistant.id
             )
             thread_id = str(thread.id)
+            logger.debug("Thread %s not found, created new thread %s", thread_id, thread.id)
     else:
         thread = Thread.objects.create(
-            created_by=user, assistant_id=assistant.id
+            created_by=db_user, assistant_id=assistant.id
         )
         thread_id = str(thread.id)
+        logger.debug("Created new thread %s", thread_id)
 
     # Send the user message and retrieve the AI reply (django-ai-assistant 0.4.x API)
     reply_text = assistant.run(message, thread_id=thread.id)
