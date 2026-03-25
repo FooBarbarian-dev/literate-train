@@ -1,4 +1,24 @@
 services:
+  # ---------------------------------------------------------------------------
+  # IMPORTANT — env var layering
+  # ---------------------------------------------------------------------------
+  # Two .env files are used; run `clio-env` once to generate both:
+  #
+  #   .env              (repo root, beside this file)
+  #     POSTGRES_PASSWORD, REDIS_PASSWORD, etc.
+  #     → used by Compose for ${VAR} substitution below
+  #     → controls what password the db and redis containers start with
+  #
+  #   clio/backend/.env (service env for Django + Celery)
+  #     DJANGO_*, POSTGRES_HOST/PORT/DB/USER/PASSWORD, REDIS_URL, JWT_SECRET …
+  #     → injected into the backend and celery_worker containers at runtime
+  #
+  # db and redis do NOT have env_file entries — they get their credentials
+  # from the ${VAR} substitution above.  If the root .env is missing Compose
+  # will stop with a clear error (see :? syntax on POSTGRES_PASSWORD /
+  # REDIS_PASSWORD below).
+  # ---------------------------------------------------------------------------
+
   frontend:
     build:
       context: ./clio/frontend
@@ -49,8 +69,7 @@ services:
       retries: 5
       start_period: 60s
     env_file:
-      - path: ./clio/backend/.env
-        required: false
+      - ./clio/backend/.env
 
   celery_worker:
     build:
@@ -70,8 +89,7 @@ services:
       - db
     restart: unless-stopped
     env_file:
-      - path: ./clio/backend/.env
-        required: false
+      - ./clio/backend/.env
 
   redis:
     image: redis:7-alpine
@@ -92,7 +110,7 @@ services:
       retries: 5
     command: >
       redis-server
-      --requirepass ${REDIS_PASSWORD}
+      --requirepass ${REDIS_PASSWORD:?Root .env missing - run 'clio-env' first}
       --appendonly yes
       --maxmemory 512mb
       --maxmemory-policy noeviction
@@ -117,7 +135,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-redteamlogger}
       POSTGRES_USER: ${POSTGRES_USER:-clio}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Root .env missing - run 'clio-env' first}
 
 volumes:
   redis_data:

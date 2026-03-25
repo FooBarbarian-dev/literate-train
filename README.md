@@ -43,18 +43,25 @@ package in editable mode with all dev dependencies.
 
 ### 2. Generate env files
 
+> **Required before every fresh start.** `docker compose up` will refuse to
+> start if `.env` is missing, and the backend will fail to reach the database
+> if `clio/backend/.env` is missing.
+
 ```bash
 clio-env
 ```
 
-This writes `.env` (repo root, for Docker Compose variable substitution) and
-`clio/backend/.env` (Django service env) with random passwords and secrets.
-That's all the setup needed — no certificates, no manual secret editing.
+This writes two files:
 
-> **Security shortcut**: The generated passwords are printed to the terminal
-> and stored in plaintext `.env` files. The admin and user passwords are in
-> `clio/backend/.env` as `ADMIN_PASSWORD` and `USER_PASSWORD`. In production you
-> would use a secrets vault instead.
+| File | Purpose |
+|---|---|
+| `.env` (repo root) | Docker Compose variable substitution — sets the passwords that `db` and `redis` start with |
+| `clio/backend/.env` | Injected into the `backend` and `celery_worker` containers — tells Django how to connect |
+
+Both files are generated in one go with matched passwords. **Do not edit one
+without regenerating the other.** Re-run `clio-env` any time you need fresh
+credentials (then also run `docker compose down -v` to wipe the old volumes —
+see Troubleshooting).
 
 ### 3. Start
 
@@ -147,11 +154,15 @@ docker compose down -v
 
 ## Troubleshooting
 
-| Symptom | Check |
+| Symptom | Fix |
 |---|---|
+| `Root .env missing - run 'clio-env' first` on `docker compose up` | Run `clio-env` from the repo root, then retry |
+| `clio/backend/.env not found` on `docker compose up` | Same — run `clio-env`; the file must exist before starting |
+| Backend can't connect to DB or Redis (wrong host / auth failure) | Re-run `clio-env`, then `docker compose down -v && docker compose up --build -d` — the `-v` wipes volumes so the DB restarts with the new password |
+| Password auth failure after re-running `clio-env` | The DB volume still holds the old password. Run `docker compose down -v` to reset it, **then** `docker compose up --build -d` |
 | Port 3000 already in use | `docker compose ps` or change the port mapping in compose.yaml |
-| Backend unhealthy | `docker compose logs backend` — the entrypoint waits for the DB, so check the `db` logs too |
-| Redis auth error | Make sure `clio/backend/.env` has `REDIS_URL=redis://:PASSWORD@redis:6379/0` matching the password in `.env` — re-run `clio-env` to regenerate |
+| Backend unhealthy | `docker compose logs backend` — the entrypoint waits for the DB; also check `docker compose logs db` |
+| Redis auth error | Passwords in `.env` and `clio/backend/.env` must match — re-run `clio-env` and wipe volumes |
 | Database not ready | `docker compose logs db` — the entrypoint retries automatically |
 | Static files / CSS broken | `docker compose exec backend python manage.py collectstatic --noinput` |
 | Demo data missing | `docker compose exec backend python manage.py seed_demo_data` |
