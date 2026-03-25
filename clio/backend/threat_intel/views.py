@@ -8,12 +8,15 @@ Thread IDs are UUIDs; pass null / omit to start a new conversation.
 
 from __future__ import annotations
 
+import logging
 import uuid
 
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -57,7 +60,14 @@ class ChatAPIView(APIView):
         except RuntimeError as exc:
             # Surface vLLM/config errors clearly
             return Response({"error": str(exc)}, status=503)
+        except ConnectionError as exc:
+            logger.exception("Chat assistant connection error")
+            return Response(
+                {"error": f"Unable to reach the AI model server: {exc}"},
+                status=503,
+            )
         except Exception as exc:
+            logger.exception("Chat assistant error")
             return Response({"error": f"Assistant error: {exc}"}, status=500)
 
         return Response({"reply": reply, "thread_id": thread_id})
