@@ -129,7 +129,9 @@ a:hover {
 }
 
 .logo-icon {
-  font-size: 22px;
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
 }
 
 .navbar-subtitle {
@@ -950,8 +952,9 @@ a:hover {
 }
 
 .login-logo {
-  font-size: 42px;
-  color: var(--accent-primary);
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
   margin-bottom: 8px;
 }
 

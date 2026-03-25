@@ -34,7 +34,15 @@ function NavBar() {
     <nav className="navbar">
       <div className="navbar-brand">
         <Link to="/logs" className="navbar-logo">
-          <span className="logo-icon">&#9678;</span> OVERWATCH
+          <img
+            src="/static/logo-192x192.png"
+            alt="Overwatch Logo"
+            className="logo-icon"
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.src = "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100%25' height='100%25' fill='gray' /%3E%3Ctext x='50%25' y='50%25' font-size='50' text-anchor='middle' dominant-baseline='middle' fill='white'%3E?%3C/text%3E%3C/svg%3E";
+            }}
+          /> OVERWATCH
         </Link>
         <span className="navbar-subtitle">Security Operations Logger</span>
       </div>
