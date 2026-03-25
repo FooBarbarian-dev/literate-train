@@ -45,9 +45,6 @@ services:
     build:
       context: ./clio
       dockerfile: backend/Dockerfile
-    dns:
-      - 8.8.8.8
-      - 8.8.4.4
     deploy:
       resources:
         limits:
@@ -80,9 +77,6 @@ services:
     build:
       context: ./clio
       dockerfile: backend/Dockerfile
-    dns:
-      - 8.8.8.8
-      - 8.8.4.4
     deploy:
       resources:
         limits:

@@ -67,6 +67,7 @@ class CveAttackAssistant(AIAssistant):
             api_key=api_key,
             model=model,
             temperature=0.1,
+            request_timeout=120,
         )
 
     def get_retriever(self):
