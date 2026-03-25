@@ -127,9 +127,10 @@ DATABASES = {
         "PASSWORD": env("POSTGRES_PASSWORD"),
         "HOST": env("POSTGRES_HOST"),
         "PORT": env("POSTGRES_PORT"),
-        "CONN_MAX_AGE": env.int("CONN_MAX_AGE", default=60),
-        "CONN_HEALTH_CHECKS": True,
         "OPTIONS": {
+            # pool=True uses psycopg3's built-in connection pool.
+            # CONN_MAX_AGE and CONN_HEALTH_CHECKS must NOT be set alongside
+            # pool=True — Django raises ImproperlyConfigured if they are.
             "pool": True,
         },
     }
