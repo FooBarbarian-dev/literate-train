@@ -23,6 +23,7 @@ class TagViewSet(viewsets.ModelViewSet):
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
     permission_classes = [IsJWTAuthenticated]
+    pagination_class = None
 
     def get_serializer_class(self):
         if self.action == "create":
@@ -30,7 +31,7 @@ class TagViewSet(viewsets.ModelViewSet):
         return TagSerializer
 
     def get_permissions(self):
-        if self.action in ("create", "update", "partial_update", "destroy"):
+        if self.action in ("update", "partial_update", "destroy"):
             return [IsAdmin()]
         return [IsJWTAuthenticated()]
 
@@ -79,34 +80,32 @@ class TagViewSet(viewsets.ModelViewSet):
         serializer = TagSerializer(tags, many=True)
         return Response(serializer.data)
 
-    @extend_schema(summary="Add tag to log", tags=["tags"])
-    @action(detail=False, methods=["post"], url_path="log-tag")
-    def add_log_tag(self, request):
+    @extend_schema(summary="Add or remove a tag on a log", tags=["tags"])
+    @action(detail=False, methods=["post", "delete"], url_path="log-tag")
+    def log_tag(self, request):
         log_id = request.data.get("log_id")
-        tag_id = request.data.get("tag_id")
-        tag_name = request.data.get("tag_name")
 
         if not log_id:
             return Response({"error": True, "message": "log_id required"}, status=400)
 
-        if tag_name and not tag_id:
-            tag = get_or_create_tag(tag_name, request.user.username)
-            tag_id = tag.id
+        if request.method == "POST":
+            tag_id = request.data.get("tag_id")
+            tag_name = request.data.get("tag_name")
 
-        if not tag_id:
-            return Response({"error": True, "message": "tag_id or tag_name required"}, status=400)
+            if tag_name and not tag_id:
+                tag = get_or_create_tag(tag_name, request.user.username)
+                tag_id = tag.id
 
-        log_tag = add_tag_to_log(log_id, tag_id, request.user.username)
-        return Response(LogTagSerializer(log_tag).data, status=201)
+            if not tag_id:
+                return Response({"error": True, "message": "tag_id or tag_name required"}, status=400)
 
-    @extend_schema(summary="Remove tag from log", tags=["tags"])
-    @action(detail=False, methods=["delete"], url_path="log-tag")
-    def remove_log_tag(self, request):
-        log_id = request.data.get("log_id")
+            log_tag = add_tag_to_log(log_id, tag_id, request.user.username)
+            return Response(LogTagSerializer(log_tag).data, status=201)
+
+        # DELETE
         tag_id = request.data.get("tag_id")
-
-        if not log_id or not tag_id:
-            return Response({"error": True, "message": "log_id and tag_id required"}, status=400)
+        if not tag_id:
+            return Response({"error": True, "message": "tag_id required"}, status=400)
 
         success = remove_tag_from_log(log_id, tag_id)
         if not success:

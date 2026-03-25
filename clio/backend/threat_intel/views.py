@@ -12,10 +12,15 @@ import logging
 import time
 import uuid
 
+from django.db.models import Q
+from rest_framework import filters as drf_filters
+from rest_framework import generics, serializers
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from threat_intel.models import MitreTechnique, NvdCve
 
 logger = logging.getLogger(__name__)
 
@@ -168,3 +173,152 @@ def _run_assistant(
         reply_text = str(reply_text)
 
     return reply_text, thread_id
+
+
+# ---------------------------------------------------------------------------
+# MITRE ATT&CK  (GET /api/threat-intel/mitre/)
+# ---------------------------------------------------------------------------
+
+
+class MitreTechniqueSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MitreTechnique
+        fields = [
+            "id",
+            "external_id",
+            "name",
+            "description",
+            "domain",
+            "tactics",
+            "platforms",
+            "ingested_at",
+        ]
+
+
+class MitreFacetsView(APIView):
+    """GET /api/threat-intel/mitre/facets/ — distinct domains and tactics for filter dropdowns."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        domains = sorted(
+            MitreTechnique.objects.exclude(domain="")
+            .values_list("domain", flat=True)
+            .distinct()
+        )
+        tactic_rows = MitreTechnique.objects.exclude(tactics="").values_list("tactics", flat=True)
+        tactic_set: set[str] = set()
+        for row in tactic_rows:
+            for t in row.split(","):
+                t = t.strip()
+                if t:
+                    tactic_set.add(t)
+        return Response({"domains": list(domains), "tactics": sorted(tactic_set)})
+
+
+class MitreTechniqueListView(generics.ListAPIView):
+    """
+    GET /api/threat-intel/mitre/
+
+    Query params:
+        search    – free-text search on name, external_id, description
+        domain    – repeat for multiple: ?domain=enterprise-attack&domain=ics-attack
+        tactic    – repeat for multiple tactic substrings
+        ordering  – DRF ordering: external_id | name | domain | tactics (prefix - for desc)
+    """
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = MitreTechniqueSerializer
+    filter_backends = [drf_filters.OrderingFilter]
+    ordering_fields = ["external_id", "name", "domain", "tactics"]
+    ordering = ["external_id"]
+
+    def get_queryset(self):
+        qs = MitreTechnique.objects.all()
+        search = self.request.query_params.get("search", "").strip()
+        domains = [d for d in self.request.query_params.getlist("domain") if d.strip()]
+        tactics = [t for t in self.request.query_params.getlist("tactic") if t.strip()]
+        if search:
+            qs = qs.filter(
+                Q(name__icontains=search)
+                | Q(external_id__icontains=search)
+                | Q(description__icontains=search)
+            )
+        if domains:
+            qs = qs.filter(domain__in=domains)
+        if tactics:
+            tq = Q()
+            for t in tactics:
+                tq |= Q(tactics__icontains=t)
+            qs = qs.filter(tq)
+        return qs
+
+
+# ---------------------------------------------------------------------------
+# NVD CVEs  (GET /api/threat-intel/cves/)
+# ---------------------------------------------------------------------------
+
+
+class NvdCveSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NvdCve
+        fields = [
+            "id",
+            "cve_id",
+            "description",
+            "cvss_score",
+            "published_date",
+            "affected_products",
+            "ingested_at",
+        ]
+
+
+class NvdCveListView(generics.ListAPIView):
+    """
+    GET /api/threat-intel/cves/
+
+    Query params:
+        search           – free-text search on cve_id, description, affected_products
+        cvss_severity    – repeat for multiple: none | low | medium | high | critical
+        published_after  – ISO date string (inclusive)
+        published_before – ISO date string (inclusive)
+        ordering         – DRF ordering: cve_id | cvss_score | published_date (prefix - for desc)
+    """
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = NvdCveSerializer
+    filter_backends = [drf_filters.OrderingFilter]
+    ordering_fields = ["cve_id", "cvss_score", "published_date"]
+    ordering = ["-published_date"]
+
+    _SEVERITY_MAP = {
+        "none":     Q(cvss_score__isnull=True),
+        "low":      Q(cvss_score__isnull=False, cvss_score__lt=4.0),
+        "medium":   Q(cvss_score__gte=4.0, cvss_score__lt=7.0),
+        "high":     Q(cvss_score__gte=7.0, cvss_score__lt=9.0),
+        "critical": Q(cvss_score__gte=9.0),
+    }
+
+    def get_queryset(self):
+        qs = NvdCve.objects.all()
+        search = self.request.query_params.get("search", "").strip()
+        severities = [s for s in self.request.query_params.getlist("cvss_severity") if s in self._SEVERITY_MAP]
+        published_after = self.request.query_params.get("published_after", "").strip()
+        published_before = self.request.query_params.get("published_before", "").strip()
+
+        if search:
+            qs = qs.filter(
+                Q(cve_id__icontains=search)
+                | Q(description__icontains=search)
+                | Q(affected_products__icontains=search)
+            )
+        if severities:
+            sq = Q()
+            for s in severities:
+                sq |= self._SEVERITY_MAP[s]
+            qs = qs.filter(sq)
+        if published_after:
+            qs = qs.filter(published_date__date__gte=published_after)
+        if published_before:
+            qs = qs.filter(published_date__date__lte=published_before)
+        return qs

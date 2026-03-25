@@ -13,6 +13,25 @@ from export.serializers import ExportFilterSerializer
 from logs.models import Log
 
 
+def _resolve_fields(params):
+    """Return the ordered list of fields to export.
+
+    If the caller supplied a ``fields`` query param, validate each entry
+    against ``LOG_EXPORT_FIELDS`` and return only the recognised ones (in
+    the requested order).  Unknown field names are silently ignored so that
+    clients don't have to know the exact server-side field list.  If no
+    fields are requested, or none of the requested fields are valid, the
+    full ``LOG_EXPORT_FIELDS`` list is returned.
+    """
+    raw = params.get("fields", "")
+    if raw:
+        requested = [f.strip() for f in raw.split(",") if f.strip()]
+        valid = [f for f in requested if f in LOG_EXPORT_FIELDS]
+        if valid:
+            return valid
+    return list(LOG_EXPORT_FIELDS)
+
+
 def _get_filtered_queryset(params):
     """Apply common filters to the Log queryset."""
     qs = Log.objects.all().order_by("-timestamp")
@@ -67,11 +86,12 @@ class ExportJSONView(APIView):
         filter_serializer.is_valid(raise_exception=True)
 
         qs = _get_filtered_queryset(filter_serializer.validated_data)
+        fields = _resolve_fields(filter_serializer.validated_data)
 
         def stream_json():
             yield "["
             first = True
-            for row in qs.values(*LOG_EXPORT_FIELDS).iterator():
+            for row in qs.values(*fields).iterator():
                 serialized = {
                     k: v.isoformat() if isinstance(v, datetime) else v
                     for k, v in row.items()
@@ -103,16 +123,17 @@ class ExportCSVView(APIView):
         filter_serializer.is_valid(raise_exception=True)
 
         qs = _get_filtered_queryset(filter_serializer.validated_data)
+        fields = _resolve_fields(filter_serializer.validated_data)
 
         def stream_csv():
             buffer = io.StringIO()
-            writer = csv.DictWriter(buffer, fieldnames=LOG_EXPORT_FIELDS)
+            writer = csv.DictWriter(buffer, fieldnames=fields)
             writer.writeheader()
             yield buffer.getvalue()
             buffer.seek(0)
             buffer.truncate(0)
 
-            for row in qs.values(*LOG_EXPORT_FIELDS).iterator():
+            for row in qs.values(*fields).iterator():
                 writer.writerow({
                     k: v.isoformat() if isinstance(v, datetime) else v
                     for k, v in row.items()
