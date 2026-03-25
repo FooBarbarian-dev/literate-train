@@ -7,6 +7,8 @@ import OperationsPage from './pages/OperationsPage'
 import TagsPage from './pages/TagsPage'
 import SettingsPage from './pages/SettingsPage'
 import ThreatIntelPage from './pages/ThreatIntelPage'
+import ChatPage from './pages/ChatPage'
+import ExportPage from './pages/ExportPage'
 
 function NavBar() {
   const { user, logout } = useAuth()
@@ -19,6 +21,7 @@ function NavBar() {
     { path: '/operations', label: 'Operations' },
     { path: '/tags', label: 'Tags' },
     { path: '/threat-intel', label: 'Threat Intel' },
+    { path: '/export', label: 'Export' },
     { path: '/settings', label: 'Settings' },
   ]
 
@@ -132,6 +135,14 @@ function AppRoutes() {
             element={
               <ProtectedRoute>
                 <ThreatIntelPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/export"
+            element={
+              <ProtectedRoute>
+                <ExportPage />
               </ProtectedRoute>
             }
           />

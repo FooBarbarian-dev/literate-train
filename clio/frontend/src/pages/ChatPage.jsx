@@ -41,7 +41,7 @@ export default function ChatPage() {
       const { data } = await client.post('/chat/', {
         message: text,
         thread_id: threadId,
-      })
+      }, { timeout: 150000 })
       setThreadId(data.thread_id)
       setMessages((prev) => [...prev, { role: 'assistant', content: data.reply }])
     } catch (err) {

@@ -11,6 +11,7 @@ The embedding model is chosen based on THREAT_RAG_EMBEDDING_BACKEND:
 from __future__ import annotations
 
 import json
+import logging
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -20,6 +21,8 @@ from django.conf import settings
 if TYPE_CHECKING:
     from langchain_core.embeddings import Embeddings
     from langchain_core.retrievers import BaseRetriever
+
+logger = logging.getLogger(__name__)
 
 # Fields whose names contain any of these substrings are stripped from DB
 # tool output unconditionally.
@@ -46,6 +49,7 @@ def get_embeddings() -> "Embeddings":
     )
 
     if backend == "sentence-transformers":
+        logger.info("Embedding backend: sentence-transformers (forced)")
         return _huggingface_embeddings()
 
     if backend in ("vllm", "auto"):
@@ -53,19 +57,28 @@ def get_embeddings() -> "Embeddings":
         if model_name:
             from langchain_openai import OpenAIEmbeddings
 
+            logger.info(
+                "Embedding backend: vLLM  model=%s  base_url=%s",
+                model_name,
+                vllm_base_url,
+            )
             return OpenAIEmbeddings(
                 base_url=vllm_base_url,
                 api_key=getattr(settings, "VLLM_API_KEY", "not-needed"),
                 model=model_name,
             )
         if backend == "vllm":
-            import logging
-
-            logging.getLogger(__name__).warning(
+            logger.warning(
                 "No embedding model detected at %s. "
                 "Falling back to local HuggingFace sentence-transformers. "
                 "To silence this warning set "
                 "THREAT_RAG_EMBEDDING_BACKEND=sentence-transformers.",
+                vllm_base_url,
+            )
+        else:
+            logger.info(
+                "Embedding backend: sentence-transformers (auto fallback, "
+                "no vLLM embedding model at %s)",
                 vllm_base_url,
             )
         # vllm (no embedding model found) or auto: fall through
@@ -92,9 +105,10 @@ def _detect_vllm_embedding_model(base_url: str) -> str | None:
             model_type: str = model.get("model_type", "")
             # vLLM marks embedding models via model_type or the id containing "embed"
             if model_type == "embedding" or "embed" in model_id.lower():
+                logger.debug("Detected vLLM embedding model: %s", model_id)
                 return model_id
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("vLLM embedding model detection failed: %s", exc)
     return None
 
 
@@ -133,6 +147,52 @@ def _chroma_collection(collection_name: str, embeddings: "Embeddings"):
 # Vector store ingestion
 # ---------------------------------------------------------------------------
 
+# SQLite (used by Chroma's embedded DB) caps the number of bound variables per
+# query.  Older SQLite builds default to 999; newer ones allow up to 32 766.
+# Stay well under the lower bound so we never hit the limit regardless of the
+# installed version.
+_CHROMA_GET_BATCH = 500
+
+
+def _add_new_texts_batched(
+    store,
+    texts: list[str],
+    metadatas: list[dict],
+    ids: list[str],
+    log=None,
+) -> int:
+    """
+    Add only documents whose IDs are not already present in *store*.
+
+    Existence checks are performed in batches of _CHROMA_GET_BATCH to avoid
+    SQLite's "too many SQL variables" error when the collection is large.
+
+    Returns the number of newly added documents.
+    """
+    existing: set[str] = set()
+    for i in range(0, len(ids), _CHROMA_GET_BATCH):
+        batch = ids[i : i + _CHROMA_GET_BATCH]
+        result = store._collection.get(ids=batch, include=[])
+        existing.update(result["ids"])
+
+    new_texts: list[str] = []
+    new_metas: list[dict] = []
+    new_ids: list[str] = []
+    for text, meta, doc_id in zip(texts, metadatas, ids):
+        if doc_id not in existing:
+            new_texts.append(text)
+            new_metas.append(meta)
+            new_ids.append(doc_id)
+
+    skipped = len(ids) - len(new_ids)
+    if skipped and log:
+        log(f"  Skipping {skipped:,} already-indexed chunks.")
+
+    if new_texts:
+        store.add_texts(texts=new_texts, metadatas=new_metas, ids=new_ids)
+
+    return len(new_ids)
+
 
 def build_vector_store(
     base: Path,
@@ -163,13 +223,34 @@ def build_vector_store(
     embeddings = get_embeddings()
     splitter = RecursiveCharacterTextSplitter(chunk_size=512, chunk_overlap=50)
 
+    # Batch size for add_texts() calls — keeps memory bounded and gives
+    # progress feedback during the slow embedding step.
+    BATCH_SIZE = 2000
+
+    def _existing_ids(store) -> set[str]:
+        """Return the set of document IDs already present in a Chroma collection."""
+        try:
+            return set(store._collection.get(include=[])["ids"])
+        except Exception:
+            return set()
+
+    def _flush_batch(store, texts, metas, ids) -> None:
+        store.add_texts(texts=texts, metadatas=metas, ids=ids)
+        texts.clear()
+        metas.clear()
+        ids.clear()
+
     # ---- MITRE techniques ----
     log(f"Embedding {len(techniques)} MITRE techniques…")
     mitre_store = _chroma_collection("mitre_techniques", embeddings)
+    existing_mitre = _existing_ids(mitre_store)
+    if existing_mitre:
+        log(f"  Skipping {len(existing_mitre):,} already-indexed chunks.")
 
     mitre_texts: list[str] = []
     mitre_ids: list[str] = []
     mitre_metas: list[dict] = []
+    mitre_new = 0
 
     for t in techniques:
         text = (
@@ -181,7 +262,10 @@ def build_vector_store(
         )
         chunks = splitter.split_text(text)
         for i, chunk in enumerate(chunks):
-            mitre_ids.append(f"{t['id']}_{i}")
+            chunk_id = f"{t['id']}_{i}"
+            if chunk_id in existing_mitre:
+                continue
+            mitre_ids.append(chunk_id)
             mitre_texts.append(chunk)
             mitre_metas.append(
                 {
@@ -191,22 +275,31 @@ def build_vector_store(
                     "domain": t.get("domain", ""),
                 }
             )
+            mitre_new += 1
+            if len(mitre_texts) >= BATCH_SIZE:
+                _flush_batch(mitre_store, mitre_texts, mitre_metas, mitre_ids)
 
     if mitre_texts:
-        mitre_store.add_texts(
-            texts=mitre_texts, metadatas=mitre_metas, ids=mitre_ids
-        )
-    log(f"Upserted {len(mitre_texts)} MITRE chunks into 'mitre_techniques' collection.")
+        _flush_batch(mitre_store, mitre_texts, mitre_metas, mitre_ids)
+
+    log(
+        f"Upserted {mitre_new:,} new MITRE chunks into 'mitre_techniques' collection"
+        f" ({len(existing_mitre):,} already present, skipped)."
+    )
 
     # ---- NVD CVEs ----
     log(f"Embedding {len(cves)} NVD CVEs…")
     cve_store = _chroma_collection("nvd_cves", embeddings)
+    existing_cve = _existing_ids(cve_store)
+    if existing_cve:
+        log(f"  Skipping {len(existing_cve):,} already-indexed chunks.")
 
     cve_texts: list[str] = []
     cve_ids: list[str] = []
     cve_metas: list[dict] = []
+    cve_new = 0
 
-    for c in cves:
+    for idx, c in enumerate(cves):
         products_preview = ", ".join(c.get("affected_products", [])[:5])
         text = (
             f"CVE ID: {c.get('id', '')}\n"
@@ -217,7 +310,10 @@ def build_vector_store(
         )
         chunks = splitter.split_text(text)
         for i, chunk in enumerate(chunks):
-            cve_ids.append(f"{c['id']}_{i}")
+            chunk_id = f"{c['id']}_{i}"
+            if chunk_id in existing_cve:
+                continue
+            cve_ids.append(chunk_id)
             cve_texts.append(chunk)
             cve_metas.append(
                 {
@@ -226,10 +322,22 @@ def build_vector_store(
                     "published_date": c.get("published_date", ""),
                 }
             )
+            cve_new += 1
+
+        if len(cve_texts) >= BATCH_SIZE:
+            _flush_batch(cve_store, cve_texts, cve_metas, cve_ids)
+            log(
+                f"  Indexed {cve_new:,} new CVE chunks"
+                f" ({idx + 1:,}/{len(cves):,} CVEs processed)…"
+            )
 
     if cve_texts:
-        cve_store.add_texts(texts=cve_texts, metadatas=cve_metas, ids=cve_ids)
-    log(f"Upserted {len(cve_texts)} CVE chunks into 'nvd_cves' collection.")
+        _flush_batch(cve_store, cve_texts, cve_metas, cve_ids)
+
+    log(
+        f"Upserted {cve_new:,} new CVE chunks into 'nvd_cves' collection"
+        f" ({len(existing_cve):,} already present, skipped)."
+    )
 
 
 # ---------------------------------------------------------------------------
