@@ -115,7 +115,7 @@ function MitreTab() {
   const totalPages = Math.ceil(total / pageSize)
 
   return (
-    <div className="ti-tab-content">
+    <div>
       <div className="ti-toolbar">
         <input
           className="filter-input filter-input-wide"
@@ -135,7 +135,7 @@ function MitreTab() {
         <span className="filter-count">{total.toLocaleString()} technique{total !== 1 ? 's' : ''}</span>
       </div>
 
-      {error && <div className="alert alert-error" style={{ flexShrink: 0 }}>{error}</div>}
+      {error && <div className="alert alert-error">{error}</div>}
 
       <div className="ti-table-wrap">
         {loading ? (
@@ -259,7 +259,7 @@ function CveTab() {
   const totalPages = Math.ceil(total / pageSize)
 
   return (
-    <div className="ti-tab-content">
+    <div>
       <div className="ti-toolbar">
         <input
           className="filter-input filter-input-wide"
@@ -279,7 +279,7 @@ function CveTab() {
         <span className="filter-count">{total.toLocaleString()} CVE{total !== 1 ? 's' : ''}</span>
       </div>
 
-      {error && <div className="alert alert-error" style={{ flexShrink: 0 }}>{error}</div>}
+      {error && <div className="alert alert-error">{error}</div>}
 
       <div className="ti-table-wrap">
         {loading ? (
@@ -412,7 +412,7 @@ function AssistantTab() {
   }
 
   return (
-    <div className="ti-tab-content ti-chat-wrap">
+    <div className="chat-page">
       <div className="chat-body">
         {messages.length === 0 ? (
           <div className="chat-empty">

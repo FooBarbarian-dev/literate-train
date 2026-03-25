@@ -1314,20 +1314,13 @@ a:hover {
 }
 
 /* ---- Threat Intel Page ---- */
-
-/* Page fills the viewport — no outer scroll */
 .ti-page {
-  display: flex;
-  flex-direction: column;
-  height: calc(100vh - 56px);
   max-width: 1400px;
   margin: 0 auto;
-  padding: 20px 32px 0;
-  overflow: hidden;
+  padding: 28px 32px;
 }
 
 .ti-page-header {
-  flex-shrink: 0;
   margin-bottom: 14px;
 }
 
@@ -1348,7 +1341,7 @@ a:hover {
   display: flex;
   gap: 2px;
   border-bottom: 2px solid var(--border-color);
-  flex-shrink: 0;
+  margin-bottom: 20px;
 }
 
 .ti-tab {
@@ -1377,55 +1370,35 @@ a:hover {
   background: rgba(59, 130, 246, 0.06);
 }
 
-/* Tab panel fills remaining height */
 .ti-tab-panel {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  padding-top: 14px;
+  /* normal flow */
 }
 
-/* Each tab's content is also a flex column */
 .ti-tab-content {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
+  /* normal flow */
 }
 
-/* Toolbar (filters / search) never scrolls */
+/* Toolbar (filters / search) */
 .ti-toolbar {
   display: flex;
   gap: 10px;
   align-items: center;
   flex-wrap: wrap;
-  flex-shrink: 0;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
-/* The table area scrolls internally */
+/* Table wrapper — standard border/background, no height constraint */
 .ti-table-wrap {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   background: var(--bg-surface);
-}
-
-/* Sticky header stays visible while scrolling */
-.ti-table thead th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: var(--bg-tertiary);
+  overflow-x: auto;
 }
 
 /* Compact rows */
 .ti-table td,
 .ti-table th {
-  padding: 8px 12px;
+  padding: 7px 12px;
 }
 
 /* Sortable column header */
@@ -1664,24 +1637,9 @@ a:hover {
   border: 1px solid var(--border-color);
 }
 
-/* Chat tab fills the panel */
-.ti-chat-wrap {
-  overflow: hidden;
-}
-
-.ti-chat-wrap .chat-body {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-.ti-chat-wrap .chat-input-bar {
-  padding-bottom: 12px;
-}
-
 @media (max-width: 768px) {
   .ti-page {
-    padding: 12px 16px 0;
+    padding: 16px;
   }
 
   .ti-tabs {
