@@ -133,6 +133,52 @@ def _chroma_collection(collection_name: str, embeddings: "Embeddings"):
 # Vector store ingestion
 # ---------------------------------------------------------------------------
 
+# SQLite (used by Chroma's embedded DB) caps the number of bound variables per
+# query.  Older SQLite builds default to 999; newer ones allow up to 32 766.
+# Stay well under the lower bound so we never hit the limit regardless of the
+# installed version.
+_CHROMA_GET_BATCH = 500
+
+
+def _add_new_texts_batched(
+    store,
+    texts: list[str],
+    metadatas: list[dict],
+    ids: list[str],
+    log=None,
+) -> int:
+    """
+    Add only documents whose IDs are not already present in *store*.
+
+    Existence checks are performed in batches of _CHROMA_GET_BATCH to avoid
+    SQLite's "too many SQL variables" error when the collection is large.
+
+    Returns the number of newly added documents.
+    """
+    existing: set[str] = set()
+    for i in range(0, len(ids), _CHROMA_GET_BATCH):
+        batch = ids[i : i + _CHROMA_GET_BATCH]
+        result = store._collection.get(ids=batch, include=[])
+        existing.update(result["ids"])
+
+    new_texts: list[str] = []
+    new_metas: list[dict] = []
+    new_ids: list[str] = []
+    for text, meta, doc_id in zip(texts, metadatas, ids):
+        if doc_id not in existing:
+            new_texts.append(text)
+            new_metas.append(meta)
+            new_ids.append(doc_id)
+
+    skipped = len(ids) - len(new_ids)
+    if skipped and log:
+        log(f"  Skipping {skipped:,} already-indexed chunks.")
+
+    if new_texts:
+        store.add_texts(texts=new_texts, metadatas=new_metas, ids=new_ids)
+
+    return len(new_ids)
+
 
 def build_vector_store(
     base: Path,
@@ -192,11 +238,14 @@ def build_vector_store(
                 }
             )
 
-    if mitre_texts:
-        mitre_store.add_texts(
-            texts=mitre_texts, metadatas=mitre_metas, ids=mitre_ids
-        )
-    log(f"Upserted {len(mitre_texts)} MITRE chunks into 'mitre_techniques' collection.")
+    added_mitre = _add_new_texts_batched(
+        mitre_store, mitre_texts, mitre_metas, mitre_ids, log=log
+    )
+    skipped_mitre = len(mitre_texts) - added_mitre
+    log(
+        f"Upserted {added_mitre:,} new MITRE chunks into 'mitre_techniques' collection"
+        + (f" ({skipped_mitre:,} already present, skipped)." if skipped_mitre else ".")
+    )
 
     # ---- NVD CVEs ----
     log(f"Embedding {len(cves)} NVD CVEs…")
@@ -227,9 +276,14 @@ def build_vector_store(
                 }
             )
 
-    if cve_texts:
-        cve_store.add_texts(texts=cve_texts, metadatas=cve_metas, ids=cve_ids)
-    log(f"Upserted {len(cve_texts)} CVE chunks into 'nvd_cves' collection.")
+    added_cve = _add_new_texts_batched(
+        cve_store, cve_texts, cve_metas, cve_ids, log=log
+    )
+    skipped_cve = len(cve_texts) - added_cve
+    log(
+        f"Upserted {added_cve:,} new CVE chunks into 'nvd_cves' collection"
+        + (f" ({skipped_cve:,} already present, skipped)." if skipped_cve else ".")
+    )
 
 
 # ---------------------------------------------------------------------------
