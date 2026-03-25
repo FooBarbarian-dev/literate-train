@@ -19,6 +19,24 @@ from rest_framework.views import APIView
 logger = logging.getLogger(__name__)
 
 
+def _connection_error_types() -> tuple:
+    """Return a tuple of exception classes that represent connection failures."""
+    exc_types: list[type] = [ConnectionError]
+    try:
+        from openai import APIConnectionError
+
+        exc_types.append(APIConnectionError)
+    except ImportError:
+        pass
+    try:
+        from httpx import ConnectError
+
+        exc_types.append(ConnectError)
+    except ImportError:
+        pass
+    return tuple(exc_types)
+
+
 # ---------------------------------------------------------------------------
 # JSON API endpoint  (POST /api/chat/)
 # ---------------------------------------------------------------------------
@@ -60,7 +78,7 @@ class ChatAPIView(APIView):
         except RuntimeError as exc:
             # Surface vLLM/config errors clearly
             return Response({"error": str(exc)}, status=503)
-        except ConnectionError as exc:
+        except (_connection_error_types()) as exc:
             logger.exception("Chat assistant connection error")
             return Response(
                 {"error": f"Unable to reach the AI model server: {exc}"},
