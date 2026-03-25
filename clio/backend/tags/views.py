@@ -23,6 +23,7 @@ class TagViewSet(viewsets.ModelViewSet):
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
     permission_classes = [IsJWTAuthenticated]
+    pagination_class = None
 
     def get_serializer_class(self):
         if self.action == "create":
