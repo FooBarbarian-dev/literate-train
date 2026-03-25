@@ -6,7 +6,7 @@ import LogsPage from './pages/LogsPage'
 import OperationsPage from './pages/OperationsPage'
 import TagsPage from './pages/TagsPage'
 import SettingsPage from './pages/SettingsPage'
-import ChatPage from './pages/ChatPage'
+import ThreatIntelPage from './pages/ThreatIntelPage'
 
 function NavBar() {
   const { user, logout } = useAuth()
@@ -131,7 +131,7 @@ function AppRoutes() {
             path="/threat-intel"
             element={
               <ProtectedRoute>
-                <ChatPage />
+                <ThreatIntelPage />
               </ProtectedRoute>
             }
           />

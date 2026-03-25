@@ -11,10 +11,14 @@ from __future__ import annotations
 import logging
 import uuid
 
+from django.db.models import Q
+from rest_framework import generics, serializers
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from threat_intel.models import MitreTechnique, NvdCve
 
 logger = logging.getLogger(__name__)
 
@@ -126,3 +130,110 @@ def _run_assistant(
         reply_text = str(reply_text)
 
     return reply_text, thread_id
+
+
+# ---------------------------------------------------------------------------
+# MITRE ATT&CK  (GET /api/threat-intel/mitre/)
+# ---------------------------------------------------------------------------
+
+
+class MitreTechniqueSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MitreTechnique
+        fields = [
+            "id",
+            "external_id",
+            "name",
+            "description",
+            "domain",
+            "tactics",
+            "platforms",
+            "ingested_at",
+        ]
+
+
+class MitreTechniqueListView(generics.ListAPIView):
+    """
+    GET /api/threat-intel/mitre/
+
+    Query params:
+        search   – free-text search on name, external_id, description
+        domain   – filter by ATT&CK domain (enterprise-attack | mobile-attack | ics-attack)
+        tactic   – filter by tactic phrase (substring match)
+    """
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = MitreTechniqueSerializer
+
+    def get_queryset(self):
+        qs = MitreTechnique.objects.all()
+        search = self.request.query_params.get("search", "").strip()
+        domain = self.request.query_params.get("domain", "").strip()
+        tactic = self.request.query_params.get("tactic", "").strip()
+        if search:
+            qs = qs.filter(
+                Q(name__icontains=search)
+                | Q(external_id__icontains=search)
+                | Q(description__icontains=search)
+            )
+        if domain:
+            qs = qs.filter(domain=domain)
+        if tactic:
+            qs = qs.filter(tactics__icontains=tactic)
+        return qs
+
+
+# ---------------------------------------------------------------------------
+# NVD CVEs  (GET /api/threat-intel/cves/)
+# ---------------------------------------------------------------------------
+
+
+class NvdCveSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NvdCve
+        fields = [
+            "id",
+            "cve_id",
+            "description",
+            "cvss_score",
+            "published_date",
+            "affected_products",
+            "ingested_at",
+        ]
+
+
+class NvdCveListView(generics.ListAPIView):
+    """
+    GET /api/threat-intel/cves/
+
+    Query params:
+        search      – free-text search on cve_id, description, affected_products
+        min_cvss    – minimum CVSS score (float)
+        max_cvss    – maximum CVSS score (float)
+    """
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = NvdCveSerializer
+
+    def get_queryset(self):
+        qs = NvdCve.objects.all()
+        search = self.request.query_params.get("search", "").strip()
+        min_cvss = self.request.query_params.get("min_cvss", "").strip()
+        max_cvss = self.request.query_params.get("max_cvss", "").strip()
+        if search:
+            qs = qs.filter(
+                Q(cve_id__icontains=search)
+                | Q(description__icontains=search)
+                | Q(affected_products__icontains=search)
+            )
+        if min_cvss:
+            try:
+                qs = qs.filter(cvss_score__gte=float(min_cvss))
+            except ValueError:
+                pass
+        if max_cvss:
+            try:
+                qs = qs.filter(cvss_score__lte=float(max_cvss))
+            except ValueError:
+                pass
+        return qs

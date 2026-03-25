@@ -1312,3 +1312,291 @@ a:hover {
     min-width: 100%;
   }
 }
+
+/* ---- Threat Intel Page ---- */
+.ti-page {
+  max-width: 1400px;
+}
+
+.ti-page-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* Tab bar */
+.ti-tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 2px solid var(--border-color);
+  margin-bottom: 24px;
+}
+
+.ti-tab {
+  padding: 10px 20px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+.ti-tab:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.ti-tab-active {
+  color: var(--accent-primary);
+  border-bottom-color: var(--accent-primary);
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.ti-tab-panel {
+  min-height: 400px;
+}
+
+.ti-tab-content {
+  /* Filled by child tabs */
+}
+
+/* MITRE technique ID chip */
+.ti-technique-id {
+  color: var(--accent-purple);
+  font-size: 12px;
+}
+
+.ti-technique-name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+/* CVE ID */
+.ti-cve-id {
+  color: var(--accent-yellow);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ti-cve-desc {
+  color: var(--text-secondary);
+  font-size: 13px;
+  max-width: 480px;
+}
+
+/* Domain badge */
+.ti-domain-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.ti-domain-enterprise-attack {
+  background: rgba(59, 130, 246, 0.12);
+  color: var(--accent-blue);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+}
+
+.ti-domain-mobile-attack {
+  background: rgba(34, 197, 94, 0.12);
+  color: var(--accent-green);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.ti-domain-ics-attack {
+  background: rgba(234, 179, 8, 0.12);
+  color: var(--accent-yellow);
+  border: 1px solid rgba(234, 179, 8, 0.25);
+}
+
+/* CVSS score badge */
+.ti-cvss-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.cvss-critical {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.cvss-high {
+  background: rgba(249, 115, 22, 0.15);
+  color: #fb923c;
+  border: 1px solid rgba(249, 115, 22, 0.35);
+}
+
+.cvss-medium {
+  background: rgba(234, 179, 8, 0.15);
+  color: var(--accent-yellow);
+  border: 1px solid rgba(234, 179, 8, 0.35);
+}
+
+.cvss-low {
+  background: rgba(34, 197, 94, 0.12);
+  color: var(--accent-green);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.cvss-none {
+  color: var(--text-muted);
+}
+
+/* Tactic / platform pills */
+.ti-pills-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.ti-pill {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.ti-pill-tactic {
+  background: rgba(168, 85, 247, 0.1);
+  color: var(--accent-purple);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+}
+
+.ti-pill-platform {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.ti-pill-more {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 2px 4px;
+}
+
+.ti-muted {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* Expandable detail panel */
+.ti-detail-row td {
+  padding: 0 !important;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.ti-detail-panel {
+  padding: 16px 20px 20px;
+  background: var(--bg-tertiary);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ti-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ti-detail-header strong {
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.ti-detail-row-meta {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.ti-detail-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  min-width: 100px;
+  padding-top: 3px;
+}
+
+.ti-detail-description {
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  max-height: 260px;
+  overflow-y: auto;
+  border-left: 2px solid var(--border-light);
+  padding-left: 12px;
+}
+
+/* CPE affected products */
+.ti-affected-products {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.ti-cpe-entry {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-input);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+}
+
+/* Embedded chat inside tab */
+.ti-chat-embed {
+  height: calc(100vh - 220px);
+  max-width: 100%;
+  padding: 0;
+  margin: 0;
+}
+
+.ti-chat-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding-bottom: 8px;
+  min-height: 36px;
+}
+
+@media (max-width: 768px) {
+  .ti-tabs {
+    overflow-x: auto;
+  }
+
+  .ti-tab {
+    padding: 8px 14px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .ti-detail-row-meta {
+    flex-direction: column;
+    gap: 6px;
+  }
+}
