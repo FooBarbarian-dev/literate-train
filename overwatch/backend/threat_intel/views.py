@@ -423,22 +423,40 @@ class ChatSessionMessagesView(APIView):
             return Response({"error": "Session not found."}, status=404)
 
         try:
+            import json as _json
+
             from django_ai_assistant.models import Message
 
+            # django-ai-assistant stores messages in a `message` JSONField
+            # (type="human"|"ai", data={"content": "..."}).  There is no
+            # separate `role` or `content` column — the ORM field is `message`.
             qs = (
                 Message.objects.filter(thread_id=session.thread_id)
                 .order_by("created_at")
-                .values("role", "content", "created_at")
+                .values("message", "created_at")
             )
             _role_map = {"human": "user", "ai": "assistant"}
-            data = [
-                {
-                    "role": _role_map.get(m["role"], m["role"]),
-                    "content": m["content"],
-                    "created_at": m["created_at"].isoformat(),
-                }
-                for m in qs
-            ]
+            data = []
+            for m in qs:
+                try:
+                    raw = m["message"]
+                    if isinstance(raw, str):
+                        raw = _json.loads(raw)
+                    msg_type = raw.get("type", "")
+                    content = (
+                        raw.get("data", {}).get("content")
+                        or raw.get("content")
+                        or ""
+                    )
+                    data.append(
+                        {
+                            "role": _role_map.get(msg_type, msg_type),
+                            "content": content,
+                            "created_at": m["created_at"].isoformat(),
+                        }
+                    )
+                except Exception:
+                    continue
         except Exception as exc:
             logger.debug("Could not load messages for session %s: %s", pk, exc)
             data = []
@@ -575,11 +593,21 @@ class ChatAPIView(APIView):
         from threat_intel.tasks import run_chat_task
 
         # Pass thread_id as integer directly (Celery JSON-serialises ints fine).
-        task = run_chat_task.delay(
-            message,
-            session.thread_id,
-            session_id=session.id,
-        )
+        try:
+            task = run_chat_task.delay(
+                message,
+                session.thread_id,
+                session_id=session.id,
+            )
+        except Exception as exc:
+            logger.exception(
+                "Could not dispatch chat task for session %s (broker unavailable?)",
+                session_id,
+            )
+            return Response(
+                {"error": f"Could not queue chat task: {exc}"},
+                status=503,
+            )
 
         return Response(
             {
