@@ -133,7 +133,31 @@ def run_chat_task(
             message[:120],
         )
 
-        reply_text = assistant.run(message, thread_id=thread.id)
+        # --- Manual RAG retrieval ---
+        # django-ai-assistant passes instructions verbatim; it does NOT
+        # substitute {context} via get_retriever().  We retrieve relevant
+        # documents here and prepend them to the user message so the LLM
+        # always receives real threat-intel context regardless of how the
+        # library handles the retriever hook.
+        from threat_intel.rag import get_retriever as _get_retriever
+
+        context_block = ""
+        try:
+            retriever = _get_retriever()
+            docs = retriever.invoke(message)
+            if docs:
+                passages = "\n\n".join(d.page_content for d in docs)
+                context_block = f"[THREAT INTEL CONTEXT]\n{passages}\n[/THREAT INTEL CONTEXT]\n\n"
+                logger.info(
+                    "Chat task %s  RAG retrieved %d passages", task_id, len(docs)
+                )
+            else:
+                logger.info("Chat task %s  RAG returned 0 passages", task_id)
+        except Exception:
+            logger.exception("Chat task %s  RAG retrieval failed", task_id)
+
+        augmented_message = context_block + message
+        reply_text = assistant.run(augmented_message, thread_id=thread.id)
         if not isinstance(reply_text, str):
             reply_text = str(reply_text)
 

@@ -2,7 +2,11 @@
 CVE & ATT&CK AI Assistant wired to a local vLLM endpoint.
 
 Uses two retrieval sources:
-  1. Chroma vector store (MITRE ATT&CK techniques + NVD CVEs) via get_retriever()
+  1. Chroma vector store (MITRE ATT&CK techniques + NVD CVEs) — retrieval is
+     performed manually in run_chat_task (tasks.py) before calling assistant.run()
+     and prepended as a [THREAT INTEL CONTEXT] block in the user message.
+     django-ai-assistant does not substitute {context} in instructions, so the
+     old get_retriever() hook was a no-op.
   2. Live Django ORM queries via the query_django_db @method_tool
 """
 
@@ -14,7 +18,7 @@ from typing import Optional
 
 from django_ai_assistant import AIAssistant, method_tool
 
-from threat_intel.rag import get_retriever as _rag_get_retriever, is_sensitive_field
+from threat_intel.rag import is_sensitive_field
 
 logger = logging.getLogger(__name__)
 
@@ -39,12 +43,16 @@ class CveAttackAssistant(AIAssistant):
     id = "cve_attack_assistant"
     name = "CVE & ATT&CK Assistant"
     instructions = (
-        "You are a cybersecurity assistant with access to MITRE ATT&CK techniques "
-        "and NVD CVE records. Answer questions using the provided context. "
-        "Always cite specific CVE IDs or ATT&CK technique IDs (e.g. T1059) when "
-        "they are relevant. If the context does not contain enough information, "
-        "say so explicitly rather than guessing.\n\n"
-        "Context:\n{context}"
+        "You are a cybersecurity assistant specialising in MITRE ATT&CK techniques "
+        "and NVD CVE records. "
+        "Each user message may be prefixed with a [THREAT INTEL CONTEXT] block "
+        "containing relevant passages retrieved from the threat intelligence database "
+        "— use this context to answer accurately and cite specific IDs (e.g. T1059, "
+        "CVE-2021-44228) whenever they appear. "
+        "If the context does not contain enough information to answer fully, say so "
+        "explicitly rather than guessing. "
+        "For questions about the organisation's own red-team logs and operations, "
+        "use the query_django_db tool."
     )
 
     def get_llm(self):
@@ -75,36 +83,6 @@ class CveAttackAssistant(AIAssistant):
             temperature=0.1,
             request_timeout=120,
         )
-
-    def get_retriever(self):
-        """
-        Return a MergerRetriever combining the MITRE ATT&CK and NVD CVE
-        Chroma collections.  Falls back gracefully if the vector store has
-        not been built yet.
-        """
-        try:
-            retriever = _rag_get_retriever()
-            logger.info(
-                "RAG retriever ready  collections=[mitre_techniques, nvd_cves]  k=3 each"
-            )
-            return retriever
-        except Exception:
-            # Log the FULL traceback so we can diagnose embedding-model load
-            # failures, Chroma connection errors, etc.
-            logger.exception(
-                "RAG retriever unavailable — returning empty retriever. "
-                "Common causes: embedding model not downloaded, Chroma volume "
-                "not mounted, or dimension mismatch between ingestion and "
-                "retrieval embedding models. "
-                "Run `manage.py ingest_threat_data` if the index has not been built."
-            )
-            from langchain_core.retrievers import BaseRetriever
-
-            class _EmptyRetriever(BaseRetriever):
-                def _get_relevant_documents(self, query, *, run_manager=None):
-                    return []
-
-            return _EmptyRetriever()
 
     # -------------------------------------------------------------------------
     # Django DB tool
