@@ -3,7 +3,7 @@ CVE & ATT&CK AI Assistant wired to a local vLLM endpoint.
 
 Uses two retrieval sources:
   1. Chroma vector store (MITRE ATT&CK techniques + NVD CVEs) via get_retriever()
-  2. Live Django ORM queries via the query_django_db @ai_assistant_tool
+  2. Live Django ORM queries via the query_django_db @method_tool
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from __future__ import annotations
 import os
 from typing import Optional
 
-from django_ai_assistant import AIAssistant, ai_assistant_tool
+from django_ai_assistant import AIAssistant, method_tool
 
 from threat_intel.rag import get_retriever as _rag_get_retriever, is_sensitive_field
 
@@ -100,7 +100,7 @@ class CveAttackAssistant(AIAssistant):
     # Django DB tool
     # -------------------------------------------------------------------------
 
-    @ai_assistant_tool
+    @method_tool
     def query_django_db(
         self,
         query: str,
