@@ -177,13 +177,34 @@ def build_vector_store(
     embeddings = get_embeddings()
     splitter = RecursiveCharacterTextSplitter(chunk_size=512, chunk_overlap=50)
 
+    # Batch size for add_texts() calls — keeps memory bounded and gives
+    # progress feedback during the slow embedding step.
+    BATCH_SIZE = 2000
+
+    def _existing_ids(store) -> set[str]:
+        """Return the set of document IDs already present in a Chroma collection."""
+        try:
+            return set(store._collection.get(include=[])["ids"])
+        except Exception:
+            return set()
+
+    def _flush_batch(store, texts, metas, ids) -> None:
+        store.add_texts(texts=texts, metadatas=metas, ids=ids)
+        texts.clear()
+        metas.clear()
+        ids.clear()
+
     # ---- MITRE techniques ----
     log(f"Embedding {len(techniques)} MITRE techniques…")
     mitre_store = _chroma_collection("mitre_techniques", embeddings)
+    existing_mitre = _existing_ids(mitre_store)
+    if existing_mitre:
+        log(f"  Skipping {len(existing_mitre):,} already-indexed chunks.")
 
     mitre_texts: list[str] = []
     mitre_ids: list[str] = []
     mitre_metas: list[dict] = []
+    mitre_new = 0
 
     for t in techniques:
         text = (
@@ -195,7 +216,10 @@ def build_vector_store(
         )
         chunks = splitter.split_text(text)
         for i, chunk in enumerate(chunks):
-            mitre_ids.append(f"{t['id']}_{i}")
+            chunk_id = f"{t['id']}_{i}"
+            if chunk_id in existing_mitre:
+                continue
+            mitre_ids.append(chunk_id)
             mitre_texts.append(chunk)
             mitre_metas.append(
                 {
@@ -205,22 +229,31 @@ def build_vector_store(
                     "domain": t.get("domain", ""),
                 }
             )
+            mitre_new += 1
+            if len(mitre_texts) >= BATCH_SIZE:
+                _flush_batch(mitre_store, mitre_texts, mitre_metas, mitre_ids)
 
     if mitre_texts:
-        mitre_store.add_texts(
-            texts=mitre_texts, metadatas=mitre_metas, ids=mitre_ids
-        )
-    log(f"Upserted {len(mitre_texts)} MITRE chunks into 'mitre_techniques' collection.")
+        _flush_batch(mitre_store, mitre_texts, mitre_metas, mitre_ids)
+
+    log(
+        f"Upserted {mitre_new:,} new MITRE chunks into 'mitre_techniques' collection"
+        f" ({len(existing_mitre):,} already present, skipped)."
+    )
 
     # ---- NVD CVEs ----
     log(f"Embedding {len(cves)} NVD CVEs…")
     cve_store = _chroma_collection("nvd_cves", embeddings)
+    existing_cve = _existing_ids(cve_store)
+    if existing_cve:
+        log(f"  Skipping {len(existing_cve):,} already-indexed chunks.")
 
     cve_texts: list[str] = []
     cve_ids: list[str] = []
     cve_metas: list[dict] = []
+    cve_new = 0
 
-    for c in cves:
+    for idx, c in enumerate(cves):
         products_preview = ", ".join(c.get("affected_products", [])[:5])
         text = (
             f"CVE ID: {c.get('id', '')}\n"
@@ -231,7 +264,10 @@ def build_vector_store(
         )
         chunks = splitter.split_text(text)
         for i, chunk in enumerate(chunks):
-            cve_ids.append(f"{c['id']}_{i}")
+            chunk_id = f"{c['id']}_{i}"
+            if chunk_id in existing_cve:
+                continue
+            cve_ids.append(chunk_id)
             cve_texts.append(chunk)
             cve_metas.append(
                 {
@@ -240,10 +276,22 @@ def build_vector_store(
                     "published_date": c.get("published_date", ""),
                 }
             )
+            cve_new += 1
+
+        if len(cve_texts) >= BATCH_SIZE:
+            _flush_batch(cve_store, cve_texts, cve_metas, cve_ids)
+            log(
+                f"  Indexed {cve_new:,} new CVE chunks"
+                f" ({idx + 1:,}/{len(cves):,} CVEs processed)…"
+            )
 
     if cve_texts:
-        cve_store.add_texts(texts=cve_texts, metadatas=cve_metas, ids=cve_ids)
-    log(f"Upserted {len(cve_texts)} CVE chunks into 'nvd_cves' collection.")
+        _flush_batch(cve_store, cve_texts, cve_metas, cve_ids)
+
+    log(
+        f"Upserted {cve_new:,} new CVE chunks into 'nvd_cves' collection"
+        f" ({len(existing_cve):,} already present, skipped)."
+    )
 
 
 # ---------------------------------------------------------------------------
