@@ -9,6 +9,7 @@ Thread IDs are UUIDs; pass null / omit to start a new conversation.
 from __future__ import annotations
 
 import logging
+import time
 import uuid
 
 from rest_framework.permissions import IsAuthenticated
@@ -73,10 +74,22 @@ class ChatAPIView(APIView):
 
         thread_id: str | None = request.data.get("thread_id") or None
 
+        user_label = getattr(request.user, "username", None) or str(
+            getattr(request.user, "id", "anon")
+        )
+        logger.info(
+            "Chat request  user=%s  thread=%s  message=%r",
+            user_label,
+            thread_id or "(new)",
+            message[:120],
+        )
+
+        t0 = time.monotonic()
         try:
             reply, thread_id = _run_assistant(message, thread_id, request)
         except RuntimeError as exc:
             # Surface vLLM/config errors clearly
+            logger.error("Chat config/runtime error: %s", exc)
             return Response({"error": str(exc)}, status=503)
         except (_connection_error_types()) as exc:
             logger.exception("Chat assistant connection error")
@@ -87,6 +100,14 @@ class ChatAPIView(APIView):
         except Exception as exc:
             logger.exception("Chat assistant error")
             return Response({"error": f"Assistant error: {exc}"}, status=500)
+
+        elapsed = time.monotonic() - t0
+        logger.info(
+            "Chat response  thread=%s  elapsed=%.1fs  reply_len=%d",
+            thread_id,
+            elapsed,
+            len(reply),
+        )
 
         return Response({"reply": reply, "thread_id": thread_id})
 
@@ -126,16 +147,19 @@ def _run_assistant(
     if thread_id:
         try:
             thread = Thread.objects.get(id=thread_id)
+            logger.debug("Resumed existing thread %s", thread_id)
         except Thread.DoesNotExist:
             thread = Thread.objects.create(
                 created_by=db_user, assistant_id=assistant.id
             )
             thread_id = str(thread.id)
+            logger.debug("Thread %s not found, created new thread %s", thread_id, thread.id)
     else:
         thread = Thread.objects.create(
             created_by=db_user, assistant_id=assistant.id
         )
         thread_id = str(thread.id)
+        logger.debug("Created new thread %s", thread_id)
 
     # Send the user message and retrieve the AI reply (django-ai-assistant 0.4.x API)
     reply_text = assistant.run(message, thread_id=thread.id)

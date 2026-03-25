@@ -11,6 +11,7 @@ The embedding model is chosen based on THREAT_RAG_EMBEDDING_BACKEND:
 from __future__ import annotations
 
 import json
+import logging
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -20,6 +21,8 @@ from django.conf import settings
 if TYPE_CHECKING:
     from langchain_core.embeddings import Embeddings
     from langchain_core.retrievers import BaseRetriever
+
+logger = logging.getLogger(__name__)
 
 # Fields whose names contain any of these substrings are stripped from DB
 # tool output unconditionally.
@@ -46,6 +49,7 @@ def get_embeddings() -> "Embeddings":
     )
 
     if backend == "sentence-transformers":
+        logger.info("Embedding backend: sentence-transformers (forced)")
         return _huggingface_embeddings()
 
     if backend in ("vllm", "auto"):
@@ -53,19 +57,28 @@ def get_embeddings() -> "Embeddings":
         if model_name:
             from langchain_openai import OpenAIEmbeddings
 
+            logger.info(
+                "Embedding backend: vLLM  model=%s  base_url=%s",
+                model_name,
+                vllm_base_url,
+            )
             return OpenAIEmbeddings(
                 base_url=vllm_base_url,
                 api_key=getattr(settings, "VLLM_API_KEY", "not-needed"),
                 model=model_name,
             )
         if backend == "vllm":
-            import logging
-
-            logging.getLogger(__name__).warning(
+            logger.warning(
                 "No embedding model detected at %s. "
                 "Falling back to local HuggingFace sentence-transformers. "
                 "To silence this warning set "
                 "THREAT_RAG_EMBEDDING_BACKEND=sentence-transformers.",
+                vllm_base_url,
+            )
+        else:
+            logger.info(
+                "Embedding backend: sentence-transformers (auto fallback, "
+                "no vLLM embedding model at %s)",
                 vllm_base_url,
             )
         # vllm (no embedding model found) or auto: fall through
@@ -92,9 +105,10 @@ def _detect_vllm_embedding_model(base_url: str) -> str | None:
             model_type: str = model.get("model_type", "")
             # vLLM marks embedding models via model_type or the id containing "embed"
             if model_type == "embedding" or "embed" in model_id.lower():
+                logger.debug("Detected vLLM embedding model: %s", model_id)
                 return model_id
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("vLLM embedding model detection failed: %s", exc)
     return None
 
 
