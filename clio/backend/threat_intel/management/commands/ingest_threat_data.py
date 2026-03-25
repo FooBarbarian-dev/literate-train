@@ -146,7 +146,12 @@ class Command(BaseCommand):
 
         from threat_intel.models import MitreTechnique, NvdCve
 
+        from django.core.management import call_command
+
         self.stdout.write("Upserting threat data into the database…")
+
+        # Ensure migrations are applied before attempting any writes.
+        call_command("migrate", "--noinput", verbosity=0)
 
         # ── MITRE techniques ──────────────────────────────────────────────────
         mitre_objects = [

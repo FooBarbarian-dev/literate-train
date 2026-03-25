@@ -77,10 +77,6 @@ def _run_assistant(
     Create or resume a django-ai-assistant Thread, send a message, and
     return (reply_text, thread_id).
     """
-    from django_ai_assistant.helpers.assistants import (
-        create_message,
-        create_thread,
-    )
     from django_ai_assistant.models import Thread
 
     from threat_intel.assistants import CveAttackAssistant
@@ -93,31 +89,25 @@ def _run_assistant(
         user = None
 
     # Retrieve or create the conversation thread
-    thread: Thread
+    thread: Thread | None
     if thread_id:
         try:
             thread = Thread.objects.get(id=thread_id)
         except Thread.DoesNotExist:
-            thread = create_thread(assistant=assistant, created_by=user)
+            thread = Thread.objects.create(
+                created_by=user, assistant_id=assistant.id
+            )
             thread_id = str(thread.id)
     else:
-        thread = create_thread(assistant=assistant, created_by=user)
+        thread = Thread.objects.create(
+            created_by=user, assistant_id=assistant.id
+        )
         thread_id = str(thread.id)
 
-    # Send the user message and retrieve the AI reply
-    output = create_message(
-        assistant=assistant,
-        thread=thread,
-        user=user,
-        content=message,
-    )
+    # Send the user message and retrieve the AI reply (django-ai-assistant 0.4.x API)
+    reply_text = assistant.run(message, thread_id=thread.id)
 
-    reply_text: str
-    if hasattr(output, "content"):
-        reply_text = str(output.content)
-    elif isinstance(output, str):
-        reply_text = output
-    else:
-        reply_text = str(output)
+    if not isinstance(reply_text, str):
+        reply_text = str(reply_text)
 
     return reply_text, thread_id

@@ -1,7 +1,27 @@
 services:
+  # ---------------------------------------------------------------------------
+  # IMPORTANT — env var layering
+  # ---------------------------------------------------------------------------
+  # Two .env files are used; run `clio-env` once to generate both:
+  #
+  #   .env              (repo root, beside this file)
+  #     POSTGRES_PASSWORD, REDIS_PASSWORD, etc.
+  #     → used by Compose for ${VAR} substitution below
+  #     → controls what password the db and redis containers start with
+  #
+  #   clio/backend/.env (service env for Django + Celery)
+  #     DJANGO_*, POSTGRES_HOST/PORT/DB/USER/PASSWORD, REDIS_URL, JWT_SECRET …
+  #     → injected into the backend and celery_worker containers at runtime
+  #
+  # db and redis do NOT have env_file entries — they get their credentials
+  # from the ${VAR} substitution above.  If the root .env is missing Compose
+  # will stop with a clear error (see :? syntax on POSTGRES_PASSWORD /
+  # REDIS_PASSWORD below).
+  # ---------------------------------------------------------------------------
+
   frontend:
     build:
-      context: ./frontend
+      context: ./clio/frontend
       dockerfile: Dockerfile
     deploy:
       resources:
@@ -23,8 +43,8 @@ services:
 
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: ./clio
+      dockerfile: backend/Dockerfile
     deploy:
       resources:
         limits:
@@ -34,8 +54,8 @@ services:
       - 3001:3001
     volumes:
       - evidence_files:/app/evidence
-      - ./backend/data:/app/data
-      - ./backend/exports:/app/exports
+      - ./clio/backend/data:/app/data
+      - ./clio/backend/exports:/app/exports
     depends_on:
       db:
         condition: service_healthy
@@ -48,13 +68,15 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
+    environment:
+      RUN_STARTUP_SCRIPTS: "true"
     env_file:
-      - ./backend/.env
+      - ./clio/backend/.env
 
   celery_worker:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: ./clio
+      dockerfile: backend/Dockerfile
     deploy:
       resources:
         limits:
@@ -63,13 +85,13 @@ services:
     command: celery -A backend worker --loglevel=info -c 2
     volumes:
       - evidence_files:/app/evidence
-      - ./backend/data:/app/data
+      - ./clio/backend/data:/app/data
     depends_on:
       - redis
       - db
     restart: unless-stopped
     env_file:
-      - ./backend/.env
+      - ./clio/backend/.env
 
   redis:
     image: redis:7-alpine
@@ -90,7 +112,7 @@ services:
       retries: 5
     command: >
       redis-server
-      --requirepass ${REDIS_PASSWORD}
+      --requirepass ${REDIS_PASSWORD:?Root .env missing - run 'clio-env' first}
       --appendonly yes
       --maxmemory 512mb
       --maxmemory-policy noeviction
@@ -115,7 +137,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-redteamlogger}
       POSTGRES_USER: ${POSTGRES_USER:-clio}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Root .env missing - run 'clio-env' first}
 
 volumes:
   redis_data:

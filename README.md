@@ -15,12 +15,12 @@ A platform for logging, tracking, and analysing red team activities with relatio
 |---|---|---|
 | `frontend` | React app (Vite dev server + proxy) | 3000 |
 | `backend` | Django REST API | internal |
-| `relation-service` | Relationship microservice | internal |
+| `celery_worker` | Async task worker (Celery) | internal |
 | `redis` | Cache / Celery broker | internal |
 | `db` | PostgreSQL | internal |
 
-The Vite dev server proxies `/api` → `backend:3001` and `/relation-service` →
-`relation-service:3002`, so no separate reverse proxy is needed.
+The Vite dev server proxies `/api` → `backend:3001`, so no separate reverse
+proxy is needed.
 
 ## Quick Start
 
@@ -33,8 +33,8 @@ The Vite dev server proxies `/api` → `backend:3001` and `/relation-service` �
 
 ```bash
 git clone <repository-url>
-cd literate-train/clio
-conda env create -f environment.yml
+cd literate-train
+conda env create -f clio/environment.yml
 conda activate clio
 ```
 
@@ -43,18 +43,25 @@ package in editable mode with all dev dependencies.
 
 ### 2. Generate env files
 
+> **Required before every fresh start.** `docker compose up` will refuse to
+> start if `.env` is missing, and the backend will fail to reach the database
+> if `clio/backend/.env` is missing.
+
 ```bash
 clio-env
 ```
 
-This writes `clio/.env`, `clio/backend/.env`, and `clio/relation_service/.env`
-with random passwords and secrets. That's all the setup needed — no
-certificates, no manual secret editing.
+This writes two files:
 
-> **Security shortcut**: The generated passwords are printed to the terminal
-> and stored in plaintext `.env` files. The admin and user passwords are in
-> `backend/.env` as `ADMIN_PASSWORD` and `USER_PASSWORD`. In production you
-> would use a secrets vault instead.
+| File | Purpose |
+|---|---|
+| `.env` (repo root) | Docker Compose variable substitution — sets the passwords that `db` and `redis` start with |
+| `clio/backend/.env` | Injected into the `backend` and `celery_worker` containers — tells Django how to connect |
+
+Both files are generated in one go with matched passwords. **Do not edit one
+without regenerating the other.** Re-run `clio-env` any time you need fresh
+credentials (then also run `docker compose down -v` to wipe the old volumes —
+see Troubleshooting).
 
 ### 3. Start
 
@@ -62,11 +69,11 @@ certificates, no manual secret editing.
 docker compose up --build -d
 ```
 
-The backend and relation-service containers automatically:
-- Wait for the database to be ready
-- Run Django migrations
-- Collect static files (for Django admin CSS)
-- Seed initial admin/user passwords into Redis
+The backend container automatically:
+- Waits for the database to be ready
+- Runs Django migrations
+- Collects static files (for Django admin CSS)
+- Seeds initial admin/user passwords into Redis
 
 No manual `migrate` or `seed` step required.
 
@@ -92,7 +99,7 @@ docker compose exec backend python manage.py seed_demo_data --clear
 - **API docs**: http://localhost:3000/api/schema/swagger-ui/
 - **Admin panel**: http://localhost:3000/api/admin/
 
-Log in with any username using the password from `backend/.env`:
+Log in with any username using the password from `clio/backend/.env`:
 - Use `ADMIN_PASSWORD` value with any username for **admin** access
 - Use `USER_PASSWORD` value with any username for **regular user** access
 
@@ -112,7 +119,7 @@ Log in with any username using the password from `backend/.env`:
 ## API Usage
 
 ```bash
-# Login (use the ADMIN_PASSWORD from backend/.env)
+# Login (use the ADMIN_PASSWORD from clio/backend/.env)
 curl -X POST http://localhost:3000/api/accounts/login/ \
   -H "Content-Type: application/json" \
   -d '{"username": "admin", "password": "YOUR_ADMIN_PASSWORD"}'
@@ -147,11 +154,15 @@ docker compose down -v
 
 ## Troubleshooting
 
-| Symptom | Check |
+| Symptom | Fix |
 |---|---|
+| `Root .env missing - run 'clio-env' first` on `docker compose up` | Run `clio-env` from the repo root, then retry |
+| `clio/backend/.env not found` on `docker compose up` | Same — run `clio-env`; the file must exist before starting |
+| Backend can't connect to DB or Redis (wrong host / auth failure) | Re-run `clio-env`, then `docker compose down -v && docker compose up --build -d` — the `-v` wipes volumes so the DB restarts with the new password |
+| Password auth failure after re-running `clio-env` | The DB volume still holds the old password. Run `docker compose down -v` to reset it, **then** `docker compose up --build -d` |
 | Port 3000 already in use | `docker compose ps` or change the port mapping in compose.yaml |
-| Backend unhealthy | `docker compose logs backend` — the entrypoint waits for the DB, so check the `db` logs too |
-| Redis auth error | Make sure `backend/.env` has `REDIS_URL=redis://:PASSWORD@redis:6379/0` matching the password in `.env` — re-run `clio-env` to regenerate |
+| Backend unhealthy | `docker compose logs backend` — the entrypoint waits for the DB; also check `docker compose logs db` |
+| Redis auth error | Passwords in `.env` and `clio/backend/.env` must match — re-run `clio-env` and wipe volumes |
 | Database not ready | `docker compose logs db` — the entrypoint retries automatically |
 | Static files / CSS broken | `docker compose exec backend python manage.py collectstatic --noinput` |
 | Demo data missing | `docker compose exec backend python manage.py seed_demo_data` |
@@ -207,7 +218,7 @@ supported:
 | `sentence-transformers` | Downloads and runs `BAAI/bge-small-en-v1.5` locally (~130 MB) | No embed model on vLLM, or you want reproducible offline embeddings |
 
 ```dotenv
-# In backend/.env — one of: auto | vllm | sentence-transformers
+# In clio/backend/.env — one of: auto | vllm | sentence-transformers
 THREAT_RAG_EMBEDDING_BACKEND=auto
 ```
 
@@ -349,10 +360,10 @@ stripped from all results unconditionally.
 
 | Symptom | Fix |
 |---|---|
-| `No vLLM model name configured` (HTTP 503) | Set `VLLM_MODEL_NAME` in `backend/.env` to the model id reported by `GET /v1/models` |
+| `No vLLM model name configured` (HTTP 503) | Set `VLLM_MODEL_NAME` in `clio/backend/.env` to the model id reported by `GET /v1/models` |
 | `RAG retriever unavailable` in logs | Run `clio-manage ingest_threat_data` to build the Chroma index |
-| `No embedding model detected at ...` | Set `THREAT_RAG_EMBEDDING_BACKEND=sentence-transformers` in `backend/.env` |
-| NVD download is very slow | Add `NVD_API_KEY` to `backend/.env` to lift the rate limit |
+| `No embedding model detected at ...` | Set `THREAT_RAG_EMBEDDING_BACKEND=sentence-transformers` in `clio/backend/.env` |
+| NVD download is very slow | Add `NVD_API_KEY` to `clio/backend/.env` to lift the rate limit |
 | MITRE files not updating | Delete `threat_data/mitre/*.json` to force a fresh download |
 | Vector store out of date | Re-run `clio-manage ingest_threat_data` (upsert is idempotent) |
 
@@ -360,11 +371,12 @@ stripped from all results unconditionally.
 
 ## Local Development
 
-Set up your environment with the conda env file from the [Quick Start](#quick-start):
+Set up your environment with the conda env file from the [Quick Start](#quick-start).
+All commands below assume you are at the repo root (`literate-train/`):
 
 ```bash
-conda env create -f environment.yml   # first time
-conda env update -f environment.yml   # after environment.yml changes
+conda env create -f clio/environment.yml   # first time
+conda env update -f clio/environment.yml   # after environment.yml changes
 conda activate clio
 ```
 
@@ -406,14 +418,20 @@ can also be installed individually inside Docker or CI:
 
 ### Running tests
 
+Run from `clio/backend/` where `pytest.ini` lives:
+
 ```bash
+cd clio/backend
 pytest                                # run test suite
 coverage run -m pytest && coverage report   # with coverage
 ```
 
 ### Linting
 
+Run from `clio/` where `pyproject.toml` lives:
+
 ```bash
+cd clio
 ruff check backend/ generate_env/     # fast linting
 ruff format backend/ generate_env/    # auto-format
 pylint backend/                       # deeper analysis
@@ -432,7 +450,7 @@ stripped out:
 1. **nginx + TLS** — add an nginx service, restore the HTTPS server block with
    TLS certs (Let's Encrypt or self-signed), and redirect HTTP → HTTPS.
 2. **Redis TLS + at-rest encryption** — restore `ssl=True` and the
-   `EncryptedRedis` AES-256-GCM wrapper in `backend/common/redis_client.py`;
+   `EncryptedRedis` AES-256-GCM wrapper in `clio/backend/common/redis_client.py`;
    add `REDIS_SSL=true` and `REDIS_ENCRYPTION_KEY` to env files.
 3. **PostgreSQL SSL** — re-add `ssl=on` and cert mounts to the `db` service.
 4. **Django security settings** — restore `SECURE_SSL_REDIRECT`, HSTS,
