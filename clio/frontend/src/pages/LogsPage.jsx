@@ -464,7 +464,7 @@ function LogCardRow({ log, expanded, onToggle, onEdit, onDelete, visibleFields }
           className="btn btn-ghost btn-sm log-card-add-tag"
           onClick={(e) => { e.stopPropagation(); onEdit(log) }}
         >
-          + Add Tag
+          Edit
         </button>
         <div className="tag-list">
           {(log.tags || []).map((tag, i) => (
