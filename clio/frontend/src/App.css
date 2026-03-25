@@ -1401,15 +1401,188 @@ a:hover {
   padding: 7px 12px;
 }
 
-/* Sortable column header */
+/* Column header with sort + optional filter button */
+.ti-filter-sort-th {
+  white-space: nowrap;
+}
+
+.ti-th-inner {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Sortable label inside the header */
 .ti-sortable-th {
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
+  flex: 1;
 }
 
 .ti-sortable-th:hover {
   color: var(--text-primary);
+}
+
+/* ---- Excel-style multiselect filter ---- */
+.ti-msf {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* The ▾ trigger button */
+.ti-msf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.12s;
+  flex-shrink: 0;
+}
+
+.ti-msf-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+/* Highlighted when filter is active */
+.ti-msf-active {
+  background: rgba(59, 130, 246, 0.15) !important;
+  border-color: var(--accent-primary) !important;
+  color: var(--accent-primary) !important;
+}
+
+/* Floating dropdown panel */
+.ti-msf-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 300;
+  min-width: 200px;
+  max-width: 280px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.ti-msf-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px 6px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.ti-msf-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.ti-msf-clear {
+  font-size: 11px;
+  color: var(--accent-primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.ti-msf-clear:hover {
+  text-decoration: underline;
+}
+
+.ti-msf-search {
+  width: 100%;
+  padding: 7px 12px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 12px;
+  font-family: var(--font-sans);
+  outline: none;
+}
+
+.ti-msf-list {
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.ti-msf-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-secondary);
+  transition: background 0.1s;
+}
+
+.ti-msf-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.ti-msf-item input[type="checkbox"],
+.ti-msf-item input[type="radio"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.ti-msf-badge {
+  margin-left: auto;
+  font-size: 10px;
+  padding: 1px 6px;
+}
+
+/* Date filter specific */
+.ti-date-dropdown {
+  min-width: 220px;
+}
+
+.ti-date-custom {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.ti-date-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+}
+
+.ti-date-label .filter-input {
+  min-width: unset;
+  font-size: 12px;
+  padding: 6px 8px;
 }
 
 .ti-sort-active {

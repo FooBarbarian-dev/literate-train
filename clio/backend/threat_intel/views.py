@@ -153,14 +153,35 @@ class MitreTechniqueSerializer(serializers.ModelSerializer):
         ]
 
 
+class MitreFacetsView(APIView):
+    """GET /api/threat-intel/mitre/facets/ — distinct domains and tactics for filter dropdowns."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        domains = sorted(
+            MitreTechnique.objects.exclude(domain="")
+            .values_list("domain", flat=True)
+            .distinct()
+        )
+        tactic_rows = MitreTechnique.objects.exclude(tactics="").values_list("tactics", flat=True)
+        tactic_set: set[str] = set()
+        for row in tactic_rows:
+            for t in row.split(","):
+                t = t.strip()
+                if t:
+                    tactic_set.add(t)
+        return Response({"domains": list(domains), "tactics": sorted(tactic_set)})
+
+
 class MitreTechniqueListView(generics.ListAPIView):
     """
     GET /api/threat-intel/mitre/
 
     Query params:
         search    – free-text search on name, external_id, description
-        domain    – filter by ATT&CK domain (enterprise-attack | mobile-attack | ics-attack)
-        tactic    – filter by tactic phrase (substring match)
+        domain    – repeat for multiple: ?domain=enterprise-attack&domain=ics-attack
+        tactic    – repeat for multiple tactic substrings
         ordering  – DRF ordering: external_id | name | domain | tactics (prefix - for desc)
     """
 
@@ -173,18 +194,21 @@ class MitreTechniqueListView(generics.ListAPIView):
     def get_queryset(self):
         qs = MitreTechnique.objects.all()
         search = self.request.query_params.get("search", "").strip()
-        domain = self.request.query_params.get("domain", "").strip()
-        tactic = self.request.query_params.get("tactic", "").strip()
+        domains = [d for d in self.request.query_params.getlist("domain") if d.strip()]
+        tactics = [t for t in self.request.query_params.getlist("tactic") if t.strip()]
         if search:
             qs = qs.filter(
                 Q(name__icontains=search)
                 | Q(external_id__icontains=search)
                 | Q(description__icontains=search)
             )
-        if domain:
-            qs = qs.filter(domain=domain)
-        if tactic:
-            qs = qs.filter(tactics__icontains=tactic)
+        if domains:
+            qs = qs.filter(domain__in=domains)
+        if tactics:
+            tq = Q()
+            for t in tactics:
+                tq |= Q(tactics__icontains=t)
+            qs = qs.filter(tq)
         return qs
 
 
@@ -212,10 +236,11 @@ class NvdCveListView(generics.ListAPIView):
     GET /api/threat-intel/cves/
 
     Query params:
-        search      – free-text search on cve_id, description, affected_products
-        min_cvss    – minimum CVSS score (float)
-        max_cvss    – maximum CVSS score (float)
-        ordering    – DRF ordering: cve_id | cvss_score | published_date (prefix - for desc)
+        search           – free-text search on cve_id, description, affected_products
+        cvss_severity    – repeat for multiple: none | low | medium | high | critical
+        published_after  – ISO date string (inclusive)
+        published_before – ISO date string (inclusive)
+        ordering         – DRF ordering: cve_id | cvss_score | published_date (prefix - for desc)
     """
 
     permission_classes = [IsAuthenticated]
@@ -224,25 +249,34 @@ class NvdCveListView(generics.ListAPIView):
     ordering_fields = ["cve_id", "cvss_score", "published_date"]
     ordering = ["-published_date"]
 
+    _SEVERITY_MAP = {
+        "none":     Q(cvss_score__isnull=True),
+        "low":      Q(cvss_score__isnull=False, cvss_score__lt=4.0),
+        "medium":   Q(cvss_score__gte=4.0, cvss_score__lt=7.0),
+        "high":     Q(cvss_score__gte=7.0, cvss_score__lt=9.0),
+        "critical": Q(cvss_score__gte=9.0),
+    }
+
     def get_queryset(self):
         qs = NvdCve.objects.all()
         search = self.request.query_params.get("search", "").strip()
-        min_cvss = self.request.query_params.get("min_cvss", "").strip()
-        max_cvss = self.request.query_params.get("max_cvss", "").strip()
+        severities = [s for s in self.request.query_params.getlist("cvss_severity") if s in self._SEVERITY_MAP]
+        published_after = self.request.query_params.get("published_after", "").strip()
+        published_before = self.request.query_params.get("published_before", "").strip()
+
         if search:
             qs = qs.filter(
                 Q(cve_id__icontains=search)
                 | Q(description__icontains=search)
                 | Q(affected_products__icontains=search)
             )
-        if min_cvss:
-            try:
-                qs = qs.filter(cvss_score__gte=float(min_cvss))
-            except ValueError:
-                pass
-        if max_cvss:
-            try:
-                qs = qs.filter(cvss_score__lte=float(max_cvss))
-            except ValueError:
-                pass
+        if severities:
+            sq = Q()
+            for s in severities:
+                sq |= self._SEVERITY_MAP[s]
+            qs = qs.filter(sq)
+        if published_after:
+            qs = qs.filter(published_date__date__gte=published_after)
+        if published_before:
+            qs = qs.filter(published_date__date__lte=published_before)
         return qs

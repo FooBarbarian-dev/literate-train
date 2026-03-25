@@ -13,8 +13,10 @@ function cvssColor(score) {
   return 'cvss-low'
 }
 
-function domainLabel(domain) {
-  return { 'enterprise-attack': 'Enterprise', 'mobile-attack': 'Mobile', 'ics-attack': 'ICS' }[domain] || domain
+const DOMAIN_LABELS = {
+  'enterprise-attack': 'Enterprise',
+  'mobile-attack': 'Mobile',
+  'ics-attack': 'ICS',
 }
 
 function formatDate(iso) {
@@ -35,14 +37,13 @@ function PillList({ items, className, max = 3 }) {
   )
 }
 
-function SortTh({ col, label, sort, onSort, style }) {
-  const active = sort.col === col
-  return (
-    <th style={style} className={`ti-sortable-th${active ? ' ti-sort-active' : ''}`} onClick={() => onSort(col)}>
-      {label}
-      <span className="ti-sort-icon">{active ? (sort.dir === 'asc' ? ' ↑' : ' ↓') : ' ↕'}</span>
-    </th>
-  )
+function useDebounce(value, delay = 300) {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay)
+    return () => clearTimeout(t)
+  }, [value, delay])
+  return debounced
 }
 
 function Pagination({ page, totalPages, onPage }) {
@@ -56,41 +57,231 @@ function Pagination({ page, totalPages, onPage }) {
   )
 }
 
-function useDebounce(value, delay = 300) {
-  const [debounced, setDebounced] = useState(value)
+// ---------------------------------------------------------------------------
+// MultiSelectFilter — Excel-style checkbox dropdown attached to a column header
+// ---------------------------------------------------------------------------
+
+function MultiSelectFilter({ label, options, selected, onChange }) {
+  const [open, setOpen] = useState(false)
+  const [localSearch, setLocalSearch] = useState('')
+  const ref = useRef(null)
+  const active = selected.length > 0
+
   useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delay)
-    return () => clearTimeout(t)
-  }, [value, delay])
-  return debounced
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const toggle = (val) =>
+    onChange(selected.includes(val) ? selected.filter((v) => v !== val) : [...selected, val])
+
+  const filtered = localSearch
+    ? options.filter((o) => o.label.toLowerCase().includes(localSearch.toLowerCase()))
+    : options
+
+  return (
+    <span className="ti-msf" ref={ref}>
+      <button
+        className={`ti-msf-btn${active ? ' ti-msf-active' : ''}`}
+        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}
+        title={`Filter ${label}`}
+      >
+        ▾
+      </button>
+      {open && (
+        <div className="ti-msf-dropdown">
+          <div className="ti-msf-header">
+            <span className="ti-msf-title">Filter: {label}</span>
+            {active && <button className="ti-msf-clear" onClick={() => onChange([])}>Clear</button>}
+          </div>
+          {options.length > 8 && (
+            <input
+              className="ti-msf-search"
+              placeholder="Search…"
+              value={localSearch}
+              onChange={(e) => setLocalSearch(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              autoFocus
+            />
+          )}
+          <div className="ti-msf-list">
+            {filtered.length === 0
+              ? <span className="ti-muted" style={{ padding: '6px 10px', display: 'block' }}>No matches</span>
+              : filtered.map((opt) => (
+                <label key={opt.value} className="ti-msf-item">
+                  <input type="checkbox" checked={selected.includes(opt.value)} onChange={() => toggle(opt.value)} />
+                  {opt.icon && <span className={opt.icon} />}
+                  <span>{opt.label}</span>
+                  {opt.badge && <span className={`ti-cvss-badge ${opt.badge} ti-msf-badge`}>{opt.value}</span>}
+                </label>
+              ))}
+          </div>
+        </div>
+      )}
+    </span>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// DateFilter — preset date ranges for the Published column
+// ---------------------------------------------------------------------------
+
+const DATE_PRESETS = [
+  { label: 'All time', value: '' },
+  { label: 'Last 30 days', value: '30d' },
+  { label: 'Last 90 days', value: '90d' },
+  { label: 'Last year', value: '1y' },
+  { label: 'Last 2 years', value: '2y' },
+  { label: 'Custom range', value: 'custom' },
+]
+
+function dateFromPreset(preset) {
+  const now = new Date()
+  if (preset === '30d') { const d = new Date(now); d.setDate(d.getDate() - 30); return d.toISOString().slice(0, 10) }
+  if (preset === '90d') { const d = new Date(now); d.setDate(d.getDate() - 90); return d.toISOString().slice(0, 10) }
+  if (preset === '1y')  { const d = new Date(now); d.setFullYear(d.getFullYear() - 1); return d.toISOString().slice(0, 10) }
+  if (preset === '2y')  { const d = new Date(now); d.setFullYear(d.getFullYear() - 2); return d.toISOString().slice(0, 10) }
+  return ''
+}
+
+function DateFilter({ dateFilter, onChange }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  const active = !!(dateFilter.preset && dateFilter.preset !== '')
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const setPreset = (preset) => {
+    if (preset === 'custom') {
+      onChange({ preset: 'custom', after: dateFilter.after || '', before: dateFilter.before || '' })
+    } else {
+      onChange({ preset, after: dateFromPreset(preset), before: '' })
+    }
+  }
+
+  return (
+    <span className="ti-msf" ref={ref}>
+      <button
+        className={`ti-msf-btn${active ? ' ti-msf-active' : ''}`}
+        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}
+        title="Filter by date"
+      >
+        ▾
+      </button>
+      {open && (
+        <div className="ti-msf-dropdown ti-date-dropdown">
+          <div className="ti-msf-header">
+            <span className="ti-msf-title">Published</span>
+            {active && <button className="ti-msf-clear" onClick={() => onChange({ preset: '', after: '', before: '' })}>Clear</button>}
+          </div>
+          <div className="ti-msf-list">
+            {DATE_PRESETS.map((p) => (
+              <label key={p.value} className="ti-msf-item">
+                <input
+                  type="radio"
+                  name="date-preset"
+                  checked={dateFilter.preset === p.value}
+                  onChange={() => setPreset(p.value)}
+                />
+                <span>{p.label}</span>
+              </label>
+            ))}
+          </div>
+          {dateFilter.preset === 'custom' && (
+            <div className="ti-date-custom">
+              <label className="ti-date-label">From
+                <input
+                  type="date"
+                  className="filter-input"
+                  value={dateFilter.after}
+                  onChange={(e) => onChange({ ...dateFilter, after: e.target.value })}
+                />
+              </label>
+              <label className="ti-date-label">To
+                <input
+                  type="date"
+                  className="filter-input"
+                  value={dateFilter.before}
+                  onChange={(e) => onChange({ ...dateFilter, before: e.target.value })}
+                />
+              </label>
+            </div>
+          )}
+        </div>
+      )}
+    </span>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Column header: sort + optional filter
+// ---------------------------------------------------------------------------
+
+function FilterSortTh({ col, label, sort, onSort, filter, style }) {
+  const active = sort.col === col
+  return (
+    <th style={style} className="ti-filter-sort-th">
+      <div className="ti-th-inner">
+        <span
+          className={`ti-sortable-th${active ? ' ti-sort-active' : ''}`}
+          onClick={() => onSort(col)}
+        >
+          {label}
+          <span className="ti-sort-icon">{active ? (sort.dir === 'asc' ? ' ↑' : ' ↓') : ' ↕'}</span>
+        </span>
+        {filter}
+      </div>
+    </th>
+  )
 }
 
 // ---------------------------------------------------------------------------
 // MITRE ATT&CK tab
 // ---------------------------------------------------------------------------
 
+const CVSS_SEVERITY_OPTIONS = [
+  { value: 'critical', label: 'Critical (9.0+)', badge: 'cvss-critical' },
+  { value: 'high',     label: 'High (7.0–8.9)',  badge: 'cvss-high' },
+  { value: 'medium',   label: 'Medium (4.0–6.9)', badge: 'cvss-medium' },
+  { value: 'low',      label: 'Low (0–3.9)',      badge: 'cvss-low' },
+  { value: 'none',     label: 'No score',         badge: null },
+]
+
 function MitreTab() {
   const [items, setItems] = useState([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
-  const [domain, setDomain] = useState('')
+  const [domains, setDomains] = useState([])   // selected domain values
+  const [tactics, setTactics] = useState([])   // selected tactic values
   const [sort, setSort] = useState({ col: 'external_id', dir: 'asc' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [expanded, setExpanded] = useState(null)
+  const [facets, setFacets] = useState({ domains: [], tactics: [] })
   const debouncedSearch = useDebounce(search)
   const pageSize = 50
 
-  const fetchData = useCallback(async (pg, q, dom, s) => {
+  // Load facets once
+  useEffect(() => {
+    client.get('/threat-intel/mitre/facets/').then(({ data }) => setFacets(data)).catch(() => {})
+  }, [])
+
+  const fetchData = useCallback(async (pg, q, doms, tacs, s) => {
     setLoading(true)
     setError('')
     try {
       const ordering = s.dir === 'desc' ? `-${s.col}` : s.col
-      const params = { page: pg, ordering }
-      if (q) params.search = q
-      if (dom) params.domain = dom
-      const { data } = await client.get('/threat-intel/mitre/', { params })
+      const params = new URLSearchParams({ page: pg, ordering })
+      if (q) params.set('search', q)
+      doms.forEach((d) => params.append('domain', d))
+      tacs.forEach((t) => params.append('tactic', t))
+      const { data } = await client.get(`/threat-intel/mitre/?${params}`)
       setItems(data.results ?? data)
       setTotal(data.count ?? (data.results ?? data).length)
     } catch (err) {
@@ -100,19 +291,19 @@ function MitreTab() {
     }
   }, [])
 
-  // Re-fetch when search, domain, or sort changes
   useEffect(() => {
-    setPage(1)
-    setExpanded(null)
-    fetchData(1, debouncedSearch, domain, sort)
-  }, [debouncedSearch, domain, sort, fetchData])
+    setPage(1); setExpanded(null)
+    fetchData(1, debouncedSearch, domains, tactics, sort)
+  }, [debouncedSearch, domains, tactics, sort, fetchData])
 
-  const handleSort = (col) => {
+  const handleSort = (col) =>
     setSort((prev) => ({ col, dir: prev.col === col && prev.dir === 'asc' ? 'desc' : 'asc' }))
-  }
 
-  const goPage = (pg) => { setPage(pg); setExpanded(null); fetchData(pg, debouncedSearch, domain, sort) }
+  const goPage = (pg) => { setPage(pg); setExpanded(null); fetchData(pg, debouncedSearch, domains, tactics, sort) }
   const totalPages = Math.ceil(total / pageSize)
+
+  const domainOptions = facets.domains.map((d) => ({ value: d, label: DOMAIN_LABELS[d] || d }))
+  const tacticOptions = facets.tactics.map((t) => ({ value: t, label: t }))
 
   return (
     <div>
@@ -123,14 +314,11 @@ function MitreTab() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <select className="filter-input" value={domain} onChange={(e) => setDomain(e.target.value)}>
-          <option value="">All Domains</option>
-          <option value="enterprise-attack">Enterprise</option>
-          <option value="mobile-attack">Mobile</option>
-          <option value="ics-attack">ICS</option>
-        </select>
-        {search && (
-          <button className="btn btn-ghost btn-sm" onClick={() => setSearch('')}>Clear</button>
+        {search && <button className="btn btn-ghost btn-sm" onClick={() => setSearch('')}>Clear</button>}
+        {(domains.length > 0 || tactics.length > 0) && (
+          <button className="btn btn-ghost btn-sm" onClick={() => { setDomains([]); setTactics([]) }}>
+            Clear filters
+          </button>
         )}
         <span className="filter-count">{total.toLocaleString()} technique{total !== 1 ? 's' : ''}</span>
       </div>
@@ -149,10 +337,16 @@ function MitreTab() {
           <table className="data-table ti-table">
             <thead>
               <tr>
-                <SortTh col="external_id" label="ID" sort={sort} onSort={handleSort} style={{ width: 90 }} />
-                <SortTh col="name" label="Name" sort={sort} onSort={handleSort} />
-                <SortTh col="domain" label="Domain" sort={sort} onSort={handleSort} style={{ width: 110 }} />
-                <SortTh col="tactics" label="Tactics" sort={sort} onSort={handleSort} style={{ width: 260 }} />
+                <FilterSortTh col="external_id" label="ID" sort={sort} onSort={handleSort} style={{ width: 90 }} />
+                <FilterSortTh col="name" label="Name" sort={sort} onSort={handleSort} />
+                <FilterSortTh
+                  col="domain" label="Domain" sort={sort} onSort={handleSort} style={{ width: 130 }}
+                  filter={<MultiSelectFilter label="Domain" options={domainOptions} selected={domains} onChange={setDomains} />}
+                />
+                <FilterSortTh
+                  col="tactics" label="Tactics" sort={sort} onSort={handleSort} style={{ width: 280 }}
+                  filter={<MultiSelectFilter label="Tactics" options={tacticOptions} selected={tactics} onChange={setTactics} />}
+                />
               </tr>
             </thead>
             <tbody>
@@ -166,7 +360,9 @@ function MitreTab() {
                     <td><span className="mono ti-technique-id">{item.external_id}</span></td>
                     <td className="ti-technique-name">{item.name}</td>
                     <td>
-                      <span className={`ti-domain-badge ti-domain-${item.domain}`}>{domainLabel(item.domain)}</span>
+                      <span className={`ti-domain-badge ti-domain-${item.domain}`}>
+                        {DOMAIN_LABELS[item.domain] || item.domain}
+                      </span>
                     </td>
                     <td><PillList items={item.tactics} className="ti-pill-tactic" max={3} /></td>
                   </tr>
@@ -177,7 +373,9 @@ function MitreTab() {
                           <div className="ti-detail-header">
                             <span className="mono ti-technique-id">{item.external_id}</span>
                             <strong>{item.name}</strong>
-                            <span className={`ti-domain-badge ti-domain-${item.domain}`}>{domainLabel(item.domain)}</span>
+                            <span className={`ti-domain-badge ti-domain-${item.domain}`}>
+                              {DOMAIN_LABELS[item.domain] || item.domain}
+                            </span>
                           </div>
                           {item.tactics && (
                             <div className="ti-detail-meta">
@@ -219,7 +417,8 @@ function CveTab() {
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
-  const [minCvss, setMinCvss] = useState('')
+  const [cvssFilter, setCvssFilter] = useState([])
+  const [dateFilter, setDateFilter] = useState({ preset: '', after: '', before: '' })
   const [sort, setSort] = useState({ col: 'published_date', dir: 'desc' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -227,15 +426,17 @@ function CveTab() {
   const debouncedSearch = useDebounce(search)
   const pageSize = 50
 
-  const fetchData = useCallback(async (pg, q, min, s) => {
+  const fetchData = useCallback(async (pg, q, cvss, date, s) => {
     setLoading(true)
     setError('')
     try {
       const ordering = s.dir === 'desc' ? `-${s.col}` : s.col
-      const params = { page: pg, ordering }
-      if (q) params.search = q
-      if (min) params.min_cvss = min
-      const { data } = await client.get('/threat-intel/cves/', { params })
+      const params = new URLSearchParams({ page: pg, ordering })
+      if (q) params.set('search', q)
+      cvss.forEach((v) => params.append('cvss_severity', v))
+      if (date.after) params.set('published_after', date.after)
+      if (date.before) params.set('published_before', date.before)
+      const { data } = await client.get(`/threat-intel/cves/?${params}`)
       setItems(data.results ?? data)
       setTotal(data.count ?? (data.results ?? data).length)
     } catch (err) {
@@ -246,17 +447,17 @@ function CveTab() {
   }, [])
 
   useEffect(() => {
-    setPage(1)
-    setExpanded(null)
-    fetchData(1, debouncedSearch, minCvss, sort)
-  }, [debouncedSearch, minCvss, sort, fetchData])
+    setPage(1); setExpanded(null)
+    fetchData(1, debouncedSearch, cvssFilter, dateFilter, sort)
+  }, [debouncedSearch, cvssFilter, dateFilter, sort, fetchData])
 
-  const handleSort = (col) => {
+  const handleSort = (col) =>
     setSort((prev) => ({ col, dir: prev.col === col && prev.dir === 'asc' ? 'desc' : 'asc' }))
-  }
 
-  const goPage = (pg) => { setPage(pg); setExpanded(null); fetchData(pg, debouncedSearch, minCvss, sort) }
+  const goPage = (pg) => { setPage(pg); setExpanded(null); fetchData(pg, debouncedSearch, cvssFilter, dateFilter, sort) }
   const totalPages = Math.ceil(total / pageSize)
+
+  const filtersActive = cvssFilter.length > 0 || (dateFilter.preset && dateFilter.preset !== '')
 
   return (
     <div>
@@ -267,14 +468,11 @@ function CveTab() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <select className="filter-input" value={minCvss} onChange={(e) => setMinCvss(e.target.value)}>
-          <option value="">Any CVSS</option>
-          <option value="4.0">4.0+ Medium</option>
-          <option value="7.0">7.0+ High</option>
-          <option value="9.0">9.0+ Critical</option>
-        </select>
-        {search && (
-          <button className="btn btn-ghost btn-sm" onClick={() => setSearch('')}>Clear</button>
+        {search && <button className="btn btn-ghost btn-sm" onClick={() => setSearch('')}>Clear</button>}
+        {filtersActive && (
+          <button className="btn btn-ghost btn-sm" onClick={() => { setCvssFilter([]); setDateFilter({ preset: '', after: '', before: '' }) }}>
+            Clear filters
+          </button>
         )}
         <span className="filter-count">{total.toLocaleString()} CVE{total !== 1 ? 's' : ''}</span>
       </div>
@@ -293,10 +491,16 @@ function CveTab() {
           <table className="data-table ti-table">
             <thead>
               <tr>
-                <SortTh col="cve_id" label="CVE ID" sort={sort} onSort={handleSort} style={{ width: 160 }} />
+                <FilterSortTh col="cve_id" label="CVE ID" sort={sort} onSort={handleSort} style={{ width: 160 }} />
                 <th>Description</th>
-                <SortTh col="cvss_score" label="CVSS" sort={sort} onSort={handleSort} style={{ width: 90 }} />
-                <SortTh col="published_date" label="Published" sort={sort} onSort={handleSort} style={{ width: 120 }} />
+                <FilterSortTh
+                  col="cvss_score" label="CVSS" sort={sort} onSort={handleSort} style={{ width: 100 }}
+                  filter={<MultiSelectFilter label="CVSS" options={CVSS_SEVERITY_OPTIONS} selected={cvssFilter} onChange={setCvssFilter} />}
+                />
+                <FilterSortTh
+                  col="published_date" label="Published" sort={sort} onSort={handleSort} style={{ width: 140 }}
+                  filter={<DateFilter dateFilter={dateFilter} onChange={setDateFilter} />}
+                />
               </tr>
             </thead>
             <tbody>
@@ -475,7 +679,7 @@ function AssistantTab() {
 
 const TABS = [
   { id: 'mitre', label: 'MITRE ATT\u0026CK' },
-  { id: 'cves', label: 'CVEs' },
+  { id: 'cves',  label: 'CVEs' },
   { id: 'assistant', label: 'AI Assistant' },
 ]
 
@@ -505,7 +709,7 @@ export default function ThreatIntelPage() {
 
       <div className="ti-tab-panel">
         {activeTab === 'mitre' && <MitreTab />}
-        {activeTab === 'cves' && <CveTab />}
+        {activeTab === 'cves'  && <CveTab />}
         {activeTab === 'assistant' && <AssistantTab />}
       </div>
     </div>
