@@ -115,7 +115,13 @@ def _detect_vllm_embedding_model(base_url: str) -> str | None:
 def _huggingface_embeddings() -> "Embeddings":
     from langchain_community.embeddings import HuggingFaceEmbeddings
 
-    return HuggingFaceEmbeddings(model_name="BAAI/bge-small-en-v1.5")
+    # Respect SENTENCE_TRANSFORMERS_HOME if set (Dockerfile pins this to
+    # /app/models/sentence_transformers so the pre-downloaded model is found).
+    cache_dir = os.environ.get("SENTENCE_TRANSFORMERS_HOME") or None
+    return HuggingFaceEmbeddings(
+        model_name="BAAI/bge-small-en-v1.5",
+        cache_folder=cache_dir,
+    )
 
 
 # ---------------------------------------------------------------------------

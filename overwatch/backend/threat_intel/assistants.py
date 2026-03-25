@@ -88,16 +88,17 @@ class CveAttackAssistant(AIAssistant):
                 "RAG retriever ready  collections=[mitre_techniques, nvd_cves]  k=3 each"
             )
             return retriever
-        except Exception as exc:
-            # If Chroma collections are empty (no ingestion yet), return a
-            # no-op retriever rather than crashing.
-            logger.warning(
-                "RAG retriever unavailable: %s. "
-                "Run `manage.py ingest_threat_data` to build the index.",
-                exc,
+        except Exception:
+            # Log the FULL traceback so we can diagnose embedding-model load
+            # failures, Chroma connection errors, etc.
+            logger.exception(
+                "RAG retriever unavailable — returning empty retriever. "
+                "Common causes: embedding model not downloaded, Chroma volume "
+                "not mounted, or dimension mismatch between ingestion and "
+                "retrieval embedding models. "
+                "Run `manage.py ingest_threat_data` if the index has not been built."
             )
             from langchain_core.retrievers import BaseRetriever
-            from langchain_core.documents import Document
 
             class _EmptyRetriever(BaseRetriever):
                 def _get_relevant_documents(self, query, *, run_manager=None):
