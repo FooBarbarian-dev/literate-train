@@ -15,10 +15,11 @@ class LogCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Log
         fields = [
-            "timestamp", "internal_ip", "external_ip", "mac_address",
+            "id", "timestamp", "internal_ip", "external_ip", "mac_address",
             "hostname", "domain", "username", "command", "notes",
             "filename", "status", "secrets", "hash_algorithm", "hash_value", "pid",
         ]
+        read_only_fields = ["id"]
         extra_kwargs = {
             "timestamp": {"required": False},
         }
