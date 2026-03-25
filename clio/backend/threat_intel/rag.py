@@ -59,13 +59,16 @@ def get_embeddings() -> "Embeddings":
                 model=model_name,
             )
         if backend == "vllm":
-            raise RuntimeError(
-                f"No embedding model detected at {vllm_base_url}. "
-                "Check the VLLM_BASE_URL environment variable, or set "
-                "THREAT_RAG_EMBEDDING_BACKEND=sentence-transformers to use "
-                "a local HuggingFace model instead."
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "No embedding model detected at %s. "
+                "Falling back to local HuggingFace sentence-transformers. "
+                "To silence this warning set "
+                "THREAT_RAG_EMBEDDING_BACKEND=sentence-transformers.",
+                vllm_base_url,
             )
-        # auto: fall through to sentence-transformers
+        # vllm (no embedding model found) or auto: fall through
         return _huggingface_embeddings()
 
     raise ValueError(

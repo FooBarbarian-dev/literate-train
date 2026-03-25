@@ -83,10 +83,15 @@ def _run_assistant(
 
     assistant = CveAttackAssistant()
 
-    # Resolve user: use request.user if authenticated, else None (anonymous)
-    user = getattr(request, "user", None)
-    if user is not None and not user.is_authenticated:
-        user = None
+    # Resolve user: Thread.created_by is a FK to AUTH_USER_MODEL, so we can
+    # only pass a real Django User instance.  JWTUser (a dataclass used by
+    # the stateless JWT auth backend) is *not* a model and will cause
+    # ``ValueError`` if assigned.  Pass None in that case.
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    raw_user = getattr(request, "user", None)
+    db_user = raw_user if isinstance(raw_user, User) else None
 
     # Retrieve or create the conversation thread
     thread: Thread | None
@@ -95,12 +100,12 @@ def _run_assistant(
             thread = Thread.objects.get(id=thread_id)
         except Thread.DoesNotExist:
             thread = Thread.objects.create(
-                created_by=user, assistant_id=assistant.id
+                created_by=db_user, assistant_id=assistant.id
             )
             thread_id = str(thread.id)
     else:
         thread = Thread.objects.create(
-            created_by=user, assistant_id=assistant.id
+            created_by=db_user, assistant_id=assistant.id
         )
         thread_id = str(thread.id)
 
