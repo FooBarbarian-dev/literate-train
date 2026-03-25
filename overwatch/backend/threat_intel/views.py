@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import logging
 import time
-import uuid
 from pathlib import Path
 
 from django.conf import settings
@@ -28,7 +27,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from threat_intel.models import ChatSession, MitreTechnique, NvdCve
+from threat_intel.models import ChatSession, MitreTechnique, NvdCve, SessionSource
 
 logger = logging.getLogger(__name__)
 
@@ -85,9 +84,11 @@ def _run_assistant(
     thread: Thread | None
     if thread_id:
         try:
-            thread = Thread.objects.get(id=thread_id)
+            # thread_id may arrive as a string from the legacy JSON body;
+            # Thread.id is an integer field so coerce it.
+            thread = Thread.objects.get(id=int(thread_id))
             logger.debug("Resumed existing thread %s", thread_id)
-        except Thread.DoesNotExist:
+        except (Thread.DoesNotExist, ValueError, TypeError):
             thread = Thread.objects.create(
                 created_by=db_user, assistant_id=assistant.id
             )
@@ -306,6 +307,9 @@ class ChatSessionListCreateView(APIView):
         username = _get_username(request)
 
         # Create the backing Thread immediately so thread_id is stable.
+        # BUG 1 FIX: thread.id is an integer PK; store it as-is in
+        # BigIntegerField.  No UUID coercion.
+        thread_id: int | None = None
         try:
             from django_ai_assistant.models import Thread
 
@@ -315,11 +319,11 @@ class ChatSessionListCreateView(APIView):
             thread = Thread.objects.create(
                 created_by=None, assistant_id=assistant.id
             )
-            thread_id = thread.id
+            thread_id = int(thread.id)
         except Exception as exc:
             logger.warning("Could not create Thread via django-ai-assistant: %s", exc)
-            # Fall back to a bare UUID — the task will create the Thread on first send.
-            thread_id = uuid.uuid4()
+            # Leave thread_id as None — _handle_session_message will retry on
+            # first send.  Do NOT fall back to a UUID (that was BUG 1's root cause).
 
         session = ChatSession.objects.create(
             thread_id=thread_id,
@@ -532,6 +536,27 @@ class ChatAPIView(APIView):
         except ChatSession.DoesNotExist:
             return Response({"error": "Session not found."}, status=404)
 
+        # If Thread creation failed at session-create time, retry now.
+        # BUG 1 FIX: thread_id is BigIntegerField; never assign a UUID here.
+        if session.thread_id is None:
+            try:
+                from django_ai_assistant.models import Thread
+
+                from threat_intel.assistants import CveAttackAssistant
+
+                assistant = CveAttackAssistant()
+                thread = Thread.objects.create(
+                    created_by=None, assistant_id=assistant.id
+                )
+                session.thread_id = int(thread.id)
+                session.save(update_fields=["thread_id"])
+            except Exception as exc:
+                logger.error("Could not create Thread for session %s: %s", session_id, exc)
+                return Response(
+                    {"error": "Could not initialise AI session thread. Is the LLM service running?"},
+                    status=503,
+                )
+
         # Auto-name session on first message (before dispatching task).
         session_name = session.name
         if not session_name:
@@ -549,9 +574,10 @@ class ChatAPIView(APIView):
 
         from threat_intel.tasks import run_chat_task
 
+        # Pass thread_id as integer directly (Celery JSON-serialises ints fine).
         task = run_chat_task.delay(
             message,
-            str(session.thread_id),
+            session.thread_id,
             session_id=session.id,
         )
 
@@ -591,6 +617,66 @@ class ChatTaskStatusView(APIView):
         if result is None:
             return Response({"status": "pending"})
         return Response(result)
+
+
+# ---------------------------------------------------------------------------
+# Per-session source citations   GET /api/chat/sessions/{id}/sources/
+# ---------------------------------------------------------------------------
+
+
+class ChatSessionSourcesView(APIView):
+    """
+    GET /api/chat/sessions/{id}/sources/
+
+    Returns which RAG source records (MITRE techniques, NVD CVEs, Django DB
+    model rows) were retrieved during this session's lifetime.
+
+    BUG 2 FIX: the RAG context panel calls this endpoint whenever the active
+               session changes so "used in this session" counts update correctly.
+    BUG 3 FIX: source_url is included per record so future citation UI can link
+               directly to MITRE / NVD pages without a schema migration.
+
+    Response shape:
+    {
+      "mitre":     {"count": int, "record_ids": [...], "source_urls": [...]},
+      "nvd":       {"count": int, "record_ids": [...], "source_urls": [...]},
+      "db_models": []   # DB-model citations not yet tracked at record level
+    }
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request, pk: int) -> Response:
+        username = _get_username(request)
+        try:
+            session = ChatSession.objects.get(id=pk, username=username)
+        except ChatSession.DoesNotExist:
+            return Response({"error": "Session not found."}, status=404)
+
+        def _collect(source_type: str) -> dict:
+            qs = (
+                SessionSource.objects
+                .filter(session=session, source_type=source_type)
+                .values_list("record_id", "source_url")
+            )
+            record_ids = []
+            source_urls = []
+            for rid, url in qs:
+                record_ids.append(rid)
+                source_urls.append(url)
+            return {
+                "count": len(record_ids),
+                "record_ids": record_ids,
+                "source_urls": source_urls,
+            }
+
+        return Response(
+            {
+                "mitre": _collect(SessionSource.SOURCE_MITRE),
+                "nvd": _collect(SessionSource.SOURCE_NVD),
+                "db_models": [],
+            }
+        )
 
 
 # ---------------------------------------------------------------------------
