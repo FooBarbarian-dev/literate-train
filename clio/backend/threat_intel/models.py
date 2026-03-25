@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 
 
@@ -89,3 +91,41 @@ class NvdCve(models.Model):
     def __str__(self):
         score = f" [{self.cvss_score}]" if self.cvss_score is not None else ""
         return f"{self.cve_id}{score}"
+
+
+class ChatSession(models.Model):
+    """
+    Persistent named chat session linking a JWTUser to a django-ai-assistant Thread.
+
+    Thread.created_by is always None for JWTUser (stateless, no Django model row),
+    so we store the username ourselves.  thread_id is a plain UUID field — not a FK
+    to Thread — to avoid cross-app migration dependencies on django-ai-assistant.
+    """
+
+    thread_id = models.UUIDField(
+        unique=True,
+        default=uuid.uuid4,
+        help_text="django-ai-assistant Thread.id backing this session",
+    )
+    username = models.CharField(
+        max_length=150,
+        db_index=True,
+        help_text="JWTUser.username who owns this session",
+    )
+    name = models.CharField(
+        max_length=255,
+        default="",
+        blank=True,
+        help_text="Display name; set from first 60 chars of first user message",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "threat_intel_chat_session"
+        ordering = ["-updated_at"]
+        verbose_name = "Chat Session"
+        verbose_name_plural = "Chat Sessions"
+
+    def __str__(self):
+        return f"ChatSession({self.id}, {self.name!r}, user={self.username})"

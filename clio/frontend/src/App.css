@@ -2392,3 +2392,492 @@ a:hover {
     gap: 6px;
   }
 }
+
+/* ============================================
+   AI ASSISTANT — three-column layout
+   ============================================ */
+
+.ti-assistant-layout {
+  display: flex;
+  /* navbar(56) + page padding-top(28) + page header(~46) + header-mb(14) + tabs(~38) + tabs-mb(20) */
+  height: calc(100vh - 210px);
+  gap: 0;
+  overflow: hidden;
+}
+
+/* ---- Session Sidebar ---- */
+
+.ti-session-sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: width 0.2s ease;
+}
+
+.ti-session-sidebar-hidden {
+  width: 0;
+  border-right: none;
+  overflow: hidden;
+}
+
+.ti-session-sidebar-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.ti-new-chat-btn {
+  flex: 1;
+  font-size: 12px;
+}
+
+.ti-sidebar-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+.ti-sidebar-close-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.ti-session-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+
+.ti-session-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 20px 12px;
+}
+
+.ti-session-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  transition: background 0.12s;
+  position: relative;
+  min-width: 0;
+}
+
+.ti-session-item:hover {
+  background: var(--bg-hover);
+}
+
+.ti-session-item-active {
+  border-left-color: var(--accent-primary);
+  background: rgba(59, 130, 246, 0.07);
+}
+
+.ti-session-item-active:hover {
+  background: rgba(59, 130, 246, 0.11);
+}
+
+.ti-session-name {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.4;
+}
+
+.ti-session-item-active .ti-session-name {
+  color: var(--text-primary);
+}
+
+.ti-session-rename-input {
+  flex: 1;
+  font-size: 12px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--accent-primary);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  outline: none;
+  min-width: 0;
+}
+
+.ti-session-actions {
+  display: none;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.ti-session-item:hover .ti-session-actions {
+  display: flex;
+}
+
+.ti-session-action-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 5px;
+  border-radius: var(--radius-sm);
+  line-height: 1;
+  transition: color 0.12s, background 0.12s;
+}
+
+.ti-session-action-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+.ti-session-delete-btn:hover {
+  color: var(--accent-red);
+}
+
+/* ---- Chat Area ---- */
+
+.ti-chat-area {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ti-chat-area-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  min-height: 40px;
+}
+
+.ti-sidebar-open-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 15px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  transition: color 0.12s;
+}
+
+.ti-sidebar-open-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.ti-chat-session-label {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ti-rag-toggle-btn {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 4px 9px;
+  flex-shrink: 0;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+
+.ti-rag-toggle-btn:hover {
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
+}
+
+.ti-rag-toggle-active {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.ti-llm-offline-dot {
+  color: var(--accent-yellow);
+  font-size: 11px;
+}
+
+.ti-chat-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Timestamp below bubbles */
+.ti-msg-ts {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  padding: 0 4px;
+}
+
+/* Code blocks inside assistant messages */
+.ti-code-block {
+  display: block;
+  background: var(--bg-primary);
+  border-left: 3px solid var(--accent-primary);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  margin: 8px 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  overflow-x: auto;
+  white-space: pre;
+  color: var(--text-primary);
+}
+
+.ti-inline-code {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 1px 5px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--accent-purple);
+}
+
+/* Auto-linked CVE / ATT&CK IDs */
+.ti-auto-link {
+  color: var(--accent-blue);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+}
+
+.ti-auto-link:hover {
+  color: var(--accent-primary);
+}
+
+/* ---- RAG Panel ---- */
+
+.ti-rag-panel {
+  width: 260px;
+  flex-shrink: 0;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border-color);
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ti-rag-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.ti-llm-offline {
+  background: var(--accent-yellow-dim);
+  color: var(--accent-yellow);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.ti-rag-loading {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 20px 0;
+}
+
+.ti-rag-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ti-rag-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ti-rag-card-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.ti-rag-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ti-rag-meta {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* Status dots */
+.ti-rag-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ti-rag-dot-green  { background: var(--accent-green); }
+.ti-rag-dot-red    { background: var(--accent-red); }
+.ti-rag-dot-amber  { background: var(--accent-yellow); }
+
+/* Domain pills */
+.ti-rag-domains {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.ti-rag-domain-pill {
+  font-size: 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  color: var(--text-secondary);
+}
+
+/* CVSS distribution bar */
+.ti-rag-cvss-bar {
+  display: flex;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--bg-tertiary);
+}
+
+.ti-rag-cvss-seg {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.ti-cvss-critical { background: var(--accent-red); }
+.ti-cvss-high     { background: var(--accent-yellow); }
+.ti-cvss-medium   { background: #f59e0b; }
+.ti-cvss-low      { background: var(--accent-green); }
+
+.ti-rag-cvss-legend {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ti-cvss-label {
+  font-size: 10px;
+}
+
+.ti-cvss-label-critical { color: var(--accent-red); }
+.ti-cvss-label-high     { color: var(--accent-yellow); }
+.ti-cvss-label-medium   { color: #f59e0b; }
+
+/* Django DB model list */
+.ti-rag-db-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ti-rag-db-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.ti-rag-db-name {
+  flex: 1;
+  color: var(--text-secondary);
+}
+
+.ti-rag-db-count {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Responsive breakpoints ---- */
+
+/* ≥1024px: full three-column layout (default) */
+
+/* 768px–1023px: RAG panel hidden by default (toggle still available) */
+@media (max-width: 1023px) {
+  .ti-rag-panel {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 20;
+    box-shadow: var(--shadow-lg);
+    width: 240px;
+  }
+}
+
+/* <768px: sidebar collapses to hamburger, RAG panel also hides */
+@media (max-width: 767px) {
+  .ti-session-sidebar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 30;
+    box-shadow: var(--shadow-lg);
+  }
+
+  .ti-rag-panel {
+    width: 220px;
+  }
+
+  .ti-assistant-layout {
+    position: relative;
+  }
+}
