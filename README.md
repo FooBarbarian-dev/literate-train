@@ -1,4 +1,4 @@
-# Clio - Red Team Activity Logger
+# Overwatch - Red Team Activity Logger
 
 A platform for logging, tracking, and analysing red team activities with relationship mapping and audit capabilities.
 
@@ -34,21 +34,21 @@ proxy is needed.
 ```bash
 git clone <repository-url>
 cd literate-train
-conda env create -f clio/environment.yml
-conda activate clio
+conda env create -f overwatch/environment.yml
+conda activate overwatch
 ```
 
-This creates a `clio` conda environment with Python 3.13 and installs the
+This creates a `overwatch` conda environment with Python 3.13 and installs the
 package in editable mode with all dev dependencies.
 
 ### 2. Generate env files
 
 > **Required before every fresh start.** `docker compose up` will refuse to
 > start if `.env` is missing, and the backend will fail to reach the database
-> if `clio/backend/.env` is missing.
+> if `overwatch/backend/.env` is missing.
 
 ```bash
-clio-env
+overwatch-env
 ```
 
 This writes two files:
@@ -56,10 +56,10 @@ This writes two files:
 | File | Purpose |
 |---|---|
 | `.env` (repo root) | Docker Compose variable substitution — sets the passwords that `db` and `redis` start with |
-| `clio/backend/.env` | Injected into the `backend` and `celery_worker` containers — tells Django how to connect |
+| `overwatch/backend/.env` | Injected into the `backend` and `celery_worker` containers — tells Django how to connect |
 
 Both files are generated in one go with matched passwords. **Do not edit one
-without regenerating the other.** Re-run `clio-env` any time you need fresh
+without regenerating the other.** Re-run `overwatch-env` any time you need fresh
 credentials (then also run `docker compose down -v` to wipe the old volumes —
 see Troubleshooting).
 
@@ -99,7 +99,7 @@ docker compose exec backend python manage.py seed_demo_data --clear
 - **API docs**: http://localhost:3000/api/schema/swagger-ui/
 - **Admin panel**: http://localhost:3000/api/admin/
 
-Log in with any username using the password from `clio/backend/.env`:
+Log in with any username using the password from `overwatch/backend/.env`:
 - Use `ADMIN_PASSWORD` value with any username for **admin** access
 - Use `USER_PASSWORD` value with any username for **regular user** access
 
@@ -119,7 +119,7 @@ Log in with any username using the password from `clio/backend/.env`:
 ## API Usage
 
 ```bash
-# Login (use the ADMIN_PASSWORD from clio/backend/.env)
+# Login (use the ADMIN_PASSWORD from overwatch/backend/.env)
 curl -X POST http://localhost:3000/api/accounts/login/ \
   -H "Content-Type: application/json" \
   -d '{"username": "admin", "password": "YOUR_ADMIN_PASSWORD"}'
@@ -143,7 +143,7 @@ docker compose logs -f
 docker compose restart backend
 
 # Database backup
-docker compose exec db pg_dump -U clio redteamlogger > backup_$(date +%Y%m%d_%H%M%S).sql
+docker compose exec db pg_dump -U overwatch redteamlogger > backup_$(date +%Y%m%d_%H%M%S).sql
 
 # Stop everything (keep volumes)
 docker compose down
@@ -156,13 +156,13 @@ docker compose down -v
 
 | Symptom | Fix |
 |---|---|
-| `Root .env missing - run 'clio-env' first` on `docker compose up` | Run `clio-env` from the repo root, then retry |
-| `clio/backend/.env not found` on `docker compose up` | Same — run `clio-env`; the file must exist before starting |
-| Backend can't connect to DB or Redis (wrong host / auth failure) | Re-run `clio-env`, then `docker compose down -v && docker compose up --build -d` — the `-v` wipes volumes so the DB restarts with the new password |
-| Password auth failure after re-running `clio-env` | The DB volume still holds the old password. Run `docker compose down -v` to reset it, **then** `docker compose up --build -d` |
+| `Root .env missing - run 'overwatch-env' first` on `docker compose up` | Run `overwatch-env` from the repo root, then retry |
+| `overwatch/backend/.env not found` on `docker compose up` | Same — run `overwatch-env`; the file must exist before starting |
+| Backend can't connect to DB or Redis (wrong host / auth failure) | Re-run `overwatch-env`, then `docker compose down -v && docker compose up --build -d` — the `-v` wipes volumes so the DB restarts with the new password |
+| Password auth failure after re-running `overwatch-env` | The DB volume still holds the old password. Run `docker compose down -v` to reset it, **then** `docker compose up --build -d` |
 | Port 3000 already in use | `docker compose ps` or change the port mapping in compose.yaml |
 | Backend unhealthy | `docker compose logs backend` — the entrypoint waits for the DB; also check `docker compose logs db` |
-| Redis auth error | Passwords in `.env` and `clio/backend/.env` must match — re-run `clio-env` and wipe volumes |
+| Redis auth error | Passwords in `.env` and `overwatch/backend/.env` must match — re-run `overwatch-env` and wipe volumes |
 | Database not ready | `docker compose logs db` — the entrypoint retries automatically |
 | Static files / CSS broken | `docker compose exec backend python manage.py collectstatic --noinput` |
 | Demo data missing | `docker compose exec backend python manage.py seed_demo_data` |
@@ -183,7 +183,7 @@ No OpenAI account or internet-facing AI service is required.
 
 ### Step 1 — Point at your vLLM instance
 
-Add the following variables to `clio/backend/.env` (create the file if it does
+Add the following variables to `overwatch/backend/.env` (create the file if it does
 not exist; it is read automatically by Django):
 
 ```dotenv
@@ -218,7 +218,7 @@ supported:
 | `sentence-transformers` | Downloads and runs `BAAI/bge-small-en-v1.5` locally (~130 MB) | No embed model on vLLM, or you want reproducible offline embeddings |
 
 ```dotenv
-# In clio/backend/.env — one of: auto | vllm | sentence-transformers
+# In overwatch/backend/.env — one of: auto | vllm | sentence-transformers
 THREAT_RAG_EMBEDDING_BACKEND=auto
 ```
 
@@ -252,7 +252,7 @@ RAG extras as part of the `dev` group — no additional install needed.
 ### Step 5 — Run the ingestion command
 
 ```bash
-clio-manage ingest_threat_data
+overwatch-manage ingest_threat_data
 ```
 
 This will:
@@ -273,16 +273,16 @@ This will:
 # Download only — writes JSONL files but does not build the index.
 # Use this to collect data on a machine that has internet access,
 # then copy the output directory to the air-gapped / production host.
-clio-manage ingest_threat_data --download-only
+overwatch-manage ingest_threat_data --download-only
 
 # Index only — reads JSONL files and builds the Chroma vector store.
 # No network access required; combine with --data-dir (see below).
-clio-manage ingest_threat_data --index-only
+overwatch-manage ingest_threat_data --index-only
 
 # Point at a custom directory for JSONL input (index) or output (download).
 # This lets you download on one machine, copy the folder, and index elsewhere.
-clio-manage ingest_threat_data --index-only --data-dir /path/to/threat_data
-clio-manage ingest_threat_data --download-only --data-dir /mnt/usb/threat_data
+overwatch-manage ingest_threat_data --index-only --data-dir /path/to/threat_data
+overwatch-manage ingest_threat_data --download-only --data-dir /mnt/usb/threat_data
 ```
 
 `--download-only` and `--index-only` are mutually exclusive. Omitting both runs
@@ -302,7 +302,7 @@ Vector store built successfully.
 ### Step 6 — Start the server and use the chat
 
 ```bash
-clio-manage runserver
+overwatch-manage runserver
 ```
 
 | Interface | URL | Description |
@@ -360,12 +360,12 @@ stripped from all results unconditionally.
 
 | Symptom | Fix |
 |---|---|
-| `No vLLM model name configured` (HTTP 503) | Set `VLLM_MODEL_NAME` in `clio/backend/.env` to the model id reported by `GET /v1/models` |
-| `RAG retriever unavailable` in logs | Run `clio-manage ingest_threat_data` to build the Chroma index |
-| `No embedding model detected at ...` | Set `THREAT_RAG_EMBEDDING_BACKEND=sentence-transformers` in `clio/backend/.env` |
-| NVD download is very slow | Add `NVD_API_KEY` to `clio/backend/.env` to lift the rate limit |
+| `No vLLM model name configured` (HTTP 503) | Set `VLLM_MODEL_NAME` in `overwatch/backend/.env` to the model id reported by `GET /v1/models` |
+| `RAG retriever unavailable` in logs | Run `overwatch-manage ingest_threat_data` to build the Chroma index |
+| `No embedding model detected at ...` | Set `THREAT_RAG_EMBEDDING_BACKEND=sentence-transformers` in `overwatch/backend/.env` |
+| NVD download is very slow | Add `NVD_API_KEY` to `overwatch/backend/.env` to lift the rate limit |
 | MITRE files not updating | Delete `threat_data/mitre/*.json` to force a fresh download |
-| Vector store out of date | Re-run `clio-manage ingest_threat_data` (upsert is idempotent) |
+| Vector store out of date | Re-run `overwatch-manage ingest_threat_data` (upsert is idempotent) |
 
 ---
 
@@ -375,9 +375,9 @@ Set up your environment with the conda env file from the [Quick Start](#quick-st
 All commands below assume you are at the repo root (`literate-train/`):
 
 ```bash
-conda env create -f clio/environment.yml   # first time
-conda env update -f clio/environment.yml   # after environment.yml changes
-conda activate clio
+conda env create -f overwatch/environment.yml   # first time
+conda env update -f overwatch/environment.yml   # after environment.yml changes
+conda activate overwatch
 ```
 
 This installs the package in editable mode with all dev dependencies
@@ -390,17 +390,17 @@ Once the environment is active, the following commands are available:
 
 | Command | Description |
 |---|---|
-| `clio-env` | Generate `.env` files with random secrets for all services |
-| `clio-manage` | Django management commands (equivalent to `python manage.py`) |
+| `overwatch-env` | Generate `.env` files with random secrets for all services |
+| `overwatch-manage` | Django management commands (equivalent to `python manage.py`) |
 
 Examples:
 
 ```bash
-clio-env                              # Generate env files
-clio-manage migrate                   # Run database migrations
-clio-manage seed_demo_data            # Populate demo data
-clio-manage ingest_threat_data        # Download and index threat intel
-clio-manage runserver                 # Start the dev server
+overwatch-env                              # Generate env files
+overwatch-manage migrate                   # Run database migrations
+overwatch-manage seed_demo_data            # Populate demo data
+overwatch-manage ingest_threat_data        # Download and index threat intel
+overwatch-manage runserver                 # Start the dev server
 ```
 
 ### Optional dependency groups
@@ -418,20 +418,20 @@ can also be installed individually inside Docker or CI:
 
 ### Running tests
 
-Run from `clio/backend/` where `pytest.ini` lives:
+Run from `overwatch/backend/` where `pytest.ini` lives:
 
 ```bash
-cd clio/backend
+cd overwatch/backend
 pytest                                # run test suite
 coverage run -m pytest && coverage report   # with coverage
 ```
 
 ### Linting
 
-Run from `clio/` where `pyproject.toml` lives:
+Run from `overwatch/` where `pyproject.toml` lives:
 
 ```bash
-cd clio
+cd overwatch
 ruff check backend/ generate_env/     # fast linting
 ruff format backend/ generate_env/    # auto-format
 pylint backend/                       # deeper analysis
@@ -450,7 +450,7 @@ stripped out:
 1. **nginx + TLS** — add an nginx service, restore the HTTPS server block with
    TLS certs (Let's Encrypt or self-signed), and redirect HTTP → HTTPS.
 2. **Redis TLS + at-rest encryption** — restore `ssl=True` and the
-   `EncryptedRedis` AES-256-GCM wrapper in `clio/backend/common/redis_client.py`;
+   `EncryptedRedis` AES-256-GCM wrapper in `overwatch/backend/common/redis_client.py`;
    add `REDIS_SSL=true` and `REDIS_ENCRYPTION_KEY` to env files.
 3. **PostgreSQL SSL** — re-add `ssl=on` and cert mounts to the `db` service.
 4. **Django security settings** — restore `SECURE_SSL_REDIRECT`, HSTS,

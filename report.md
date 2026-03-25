@@ -3,11 +3,11 @@ The sustained high resource usage on startup is primarily caused by a combinatio
 
 **FINDINGS**
 
-- **Location:** `clio/compose.yaml` (all services)
+- **Location:** `overwatch/compose.yaml` (all services)
 - **Issue:** No resource limits (CPU or memory) are defined for any service in Docker Compose.
 - **Impact:** Both (Memory & CPU) - Without limits, containers will compete for all available host resources. Heavy services like Postgres, Redis, and unconstrained Python applications will consume unlimited memory under load, leading to eventual out-of-memory issues or host starvation.
 - **Type:** Config problem
-- **Fix:** Add `deploy.resources.limits` to each service in `clio/compose.yaml`.
+- **Fix:** Add `deploy.resources.limits` to each service in `overwatch/compose.yaml`.
 ```yaml
     deploy:
       resources:
@@ -16,17 +16,17 @@ The sustained high resource usage on startup is primarily caused by a combinatio
           memory: 1G
 ```
 
-- **Location:** `clio/backend/entrypoint.sh` (Line 9 & 32) and `clio/backend/backend/settings/development.py` (Line 7)
+- **Location:** `overwatch/backend/entrypoint.sh` (Line 9 & 32) and `overwatch/backend/backend/settings/development.py` (Line 7)
 - **Issue:** `DJANGO_SETTINGS_MODULE` defaults to `backend.settings.development`, which has `DEBUG = True`.
 - **Impact:** Memory - Django stores every SQL query in memory when `DEBUG` is True. In a long-running process like Gunicorn or Celery, this results in a continuous, unbounded memory leak that grows with every request or task.
 - **Type:** App problem / Config problem
 - **Fix:** Set `DEBUG=False` or change the environment to production settings in Docker.
 ```bash
-# In clio/backend/entrypoint.sh, either remove the default or change to production:
+# In overwatch/backend/entrypoint.sh, either remove the default or change to production:
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.settings.production')
 ```
 
-- **Location:** `clio/compose.yaml` (Line 41 - `celery_worker` command)
+- **Location:** `overwatch/compose.yaml` (Line 41 - `celery_worker` command)
 - **Issue:** Celery worker lacks concurrency limits (`-c`), which makes it default to the number of CPU cores. It also uses the default prefork pool.
 - **Impact:** Memory - The worker process silently inherits the host's CPU core count. If the host has 16 cores, Celery forks 16 copies of the Django application into RAM on startup, vastly increasing baseline memory consumption.
 - **Type:** Config problem
@@ -35,7 +35,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.settings.production')
     command: celery -A backend worker --loglevel=info -c 2
 ```
 
-- **Location:** `clio/backend/entrypoint.sh` (Line 57)
+- **Location:** `overwatch/backend/entrypoint.sh` (Line 57)
 - **Issue:** The Gunicorn command uses `-w 4`, hardcoding four worker processes. Combined with missing limits, this forces 4 full Django copies into memory.
 - **Impact:** Memory - Hardcoding `-w 4` may be overkill depending on available memory. If paired with the `UvicornWorker` class, the app memory footprint is strictly `4 * (App Size)`.
 - **Type:** Config problem
@@ -47,7 +47,7 @@ exec gunicorn backend.asgi:application \
     --bind 0.0.0.0:3001
 ```
 
-- **Location:** `clio/backend/backend/settings/base.py` (Line 90)
+- **Location:** `overwatch/backend/backend/settings/base.py` (Line 90)
 - **Issue:** `CONN_MAX_AGE` is set to `0`.
 - **Impact:** CPU - Setting this to `0` causes Django to close and reopen the database connection on every single request. At high load, connection overhead becomes a significant CPU burden for both Django and Postgres.
 - **Type:** App problem
@@ -56,7 +56,7 @@ exec gunicorn backend.asgi:application \
         "CONN_MAX_AGE": env.int("CONN_MAX_AGE", default=60),
 ```
 
-- **Location:** `clio/backend/entrypoint.sh` (Lines 18-54)
+- **Location:** `overwatch/backend/entrypoint.sh` (Lines 18-54)
 - **Issue:** The entrypoint script runs heavy commands (`migrate`, `collectstatic`, password seeding, and user creation) on every single `docker compose up`.
 - **Impact:** CPU - These operations trigger full Django startups and expensive I/O or DB transactions on every boot, extending startup times and spiking CPU during container restarts.
 - **Type:** Config problem
