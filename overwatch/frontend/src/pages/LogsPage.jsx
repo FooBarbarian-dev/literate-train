@@ -41,6 +41,14 @@ function saveColumnConfig(config) {
 }
 
 /* ---- Helpers ---- */
+
+function getCvssColor(score) {
+  if (score >= 9.0) return '#ef4444' // red for Critical
+  if (score >= 7.0) return '#f97316' // orange for High
+  if (score >= 4.0) return '#eab308' // yellow for Medium
+  return '#22c55e' // green for Low
+}
+
 function tagStyle(tag) {
   const color = tag.color || '#3b82f6'
   return {
@@ -413,8 +421,156 @@ function CardFieldsModal({ visibleFields, onSave, onClose }) {
   )
 }
 
+
+/* ---- AI Assist Inline View ---- */
+function AIContextInline({ context, inlineExpanded }) {
+  if (!context || context.status !== 'complete' || !inlineExpanded) return null
+
+  return (
+    <div className="log-card-ai-context-inline" style={{
+      marginTop: '1rem',
+      padding: '1rem',
+      backgroundColor: 'rgba(255, 255, 255, 0.03)',
+      borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+      borderRadius: '4px'
+    }}>
+      <div style={{ fontStyle: 'italic', color: 'rgba(255,255,255,0.6)', marginBottom: '1rem' }}>
+        {context.summary}
+      </div>
+
+      {context.mitre_techniques && context.mitre_techniques.length > 0 && (
+        <div style={{ marginBottom: '1rem' }}>
+          <div style={{ fontWeight: 'bold', fontSize: '0.85rem', marginBottom: '0.5rem', color: 'rgba(255,255,255,0.8)' }}>MITRE ATT&CK</div>
+          {context.mitre_techniques.map((t, idx) => (
+            <div key={idx} style={{ marginBottom: '0.75rem', fontSize: '0.85rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <a href={t.url} target="_blank" rel="noreferrer" style={{ color: '#818cf8', textDecoration: 'none', fontWeight: 'bold' }}>
+                  {t.technique_id}
+                </a>
+                <span style={{ color: 'rgba(255,255,255,0.8)' }}>· {t.name}</span>
+                <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '0.1rem 0.4rem', borderRadius: '4px', fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)' }}>
+                  {t.tactic}
+                </span>
+                <a href={t.url} target="_blank" rel="noreferrer" style={{ color: 'rgba(255,255,255,0.4)', textDecoration: 'none', marginLeft: 'auto' }} title="View on MITRE">
+                  &#8599;
+                </a>
+              </div>
+              <div style={{ color: 'rgba(255,255,255,0.5)', marginTop: '0.25rem', paddingLeft: '0.5rem', borderLeft: '2px solid rgba(255,255,255,0.1)' }}>
+                &rarr; {t.relevance_note}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {context.cves && context.cves.length > 0 && (
+        <div>
+          <div style={{ fontWeight: 'bold', fontSize: '0.85rem', marginBottom: '0.5rem', color: 'rgba(255,255,255,0.8)' }}>CVEs</div>
+          {context.cves.map((c, idx) => {
+            const color = getCvssColor(c.cvss_score)
+            const severityLabel = c.cvss_score >= 9.0 ? 'CRITICAL' : c.cvss_score >= 7.0 ? 'HIGH' : c.cvss_score >= 4.0 ? 'MEDIUM' : 'LOW'
+            return (
+              <div key={idx} style={{ marginBottom: '0.75rem', fontSize: '0.85rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <a href={c.url} target="_blank" rel="noreferrer" style={{ color: '#818cf8', textDecoration: 'none', fontWeight: 'bold' }}>
+                    {c.cve_id}
+                  </a>
+                  <span style={{ color: 'rgba(255,255,255,0.8)' }}>CVSS {c.cvss_score}</span>
+                  <span style={{ backgroundColor: color + '22', color: color, padding: '0.1rem 0.4rem', borderRadius: '4px', fontSize: '0.75rem', border: `1px solid ${color}55`, fontWeight: 'bold' }}>
+                    {severityLabel}
+                  </span>
+                  <a href={c.url} target="_blank" rel="noreferrer" style={{ color: 'rgba(255,255,255,0.4)', textDecoration: 'none', marginLeft: 'auto' }} title="View on NVD">
+                    &#8599;
+                  </a>
+                </div>
+                <div style={{ color: 'rgba(255,255,255,0.5)', marginTop: '0.25rem', paddingLeft: '0.5rem', borderLeft: '2px solid rgba(255,255,255,0.1)' }}>
+                  &rarr; {c.relevance_note}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ---- Individual log card row ---- */
 function LogCardRow({ log, expanded, onToggle, onEdit, onDelete, visibleFields }) {
+  const [aiContext, setAiContext] = useState(null)
+  const [inlineExpanded, setInlineExpanded] = useState(false)
+  const [aiLoading, setAiLoading] = useState(false)
+
+  useEffect(() => {
+    let timer = null
+    const checkAiContext = async () => {
+      try {
+        const res = await client.get(`/logs/${log.id}/ai-context/`)
+        setAiContext(res.data)
+        if (res.data.status === 'pending') {
+          timer = setTimeout(checkAiContext, 1500)
+        } else {
+          setAiLoading(false)
+        }
+      } catch (err) {
+        if (err.response?.status !== 404) {
+          setAiLoading(false)
+        }
+      }
+    }
+
+    if (aiLoading) {
+      checkAiContext()
+    } else {
+      // Just fetch once on mount to see if we have context
+      client.get(`/logs/${log.id}/ai-context/`).then(res => {
+        setAiContext(res.data)
+      }).catch(() => {})
+    }
+
+    return () => clearTimeout(timer)
+  }, [log.id, aiLoading])
+
+  const handleAiAssist = async (e) => {
+    e.stopPropagation()
+    if (aiContext && aiContext.status === 'complete') {
+      setInlineExpanded(!inlineExpanded)
+      if (!expanded) onToggle() // expand the card too
+      return
+    }
+
+    setAiLoading(true)
+    setInlineExpanded(true)
+    if (!expanded) onToggle()
+    try {
+      await client.post(`/logs/${log.id}/ai-context/generate/`)
+    } catch (err) {
+      setAiLoading(false)
+    }
+  }
+
+  const getAiButtonDetails = () => {
+    if (aiLoading || (aiContext && aiContext.status === 'pending')) {
+      return { label: 'Analyzing...', disabled: true, className: 'btn-ghost', style: { color: '#818cf8' }, icon: <span className="spinner" style={{ width: '12px', height: '12px', borderWidth: '2px', marginRight: '6px' }} /> }
+    }
+    if (aiContext && aiContext.status === 'error') {
+      return { label: 'AI Assist !', disabled: false, className: 'btn-ghost', style: { color: '#f59e0b' } }
+    }
+    if (aiContext && aiContext.status === 'complete') {
+      return { label: 'AI Assist ✓', disabled: false, className: 'btn-ghost', style: { color: '#818cf8', fontWeight: inlineExpanded ? 'bold' : 'normal' } }
+    }
+    return {
+      label: 'AI Assist',
+      disabled: false,
+      className: 'btn-ghost',
+      style: { color: 'rgba(255,255,255,0.7)' },
+      icon: <svg style={{ width: '14px', height: '14px', marginRight: '6px', opacity: 0.7 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg>
+    }
+  }
+
+  const aiBtn = getAiButtonDetails()
+
+
   const ts = log.timestamp || log.created_at
   const formattedTs = ts
     ? new Date(ts).toISOString().replace('T', ' ').slice(0, 19) + 'Z'
@@ -460,12 +616,23 @@ function LogCardRow({ log, expanded, onToggle, onEdit, onDelete, visibleFields }
 
       {/* Tag row */}
       <div className="log-card-tag-row">
-        <button
-          className="btn btn-ghost btn-sm log-card-add-tag"
-          onClick={(e) => { e.stopPropagation(); onEdit(log) }}
-        >
-          Edit
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button
+            className="btn btn-ghost btn-sm log-card-add-tag"
+            onClick={(e) => { e.stopPropagation(); onEdit(log) }}
+          >
+            Edit
+          </button>
+          <button
+            className={`btn btn-sm ${aiBtn.className}`}
+            onClick={handleAiAssist}
+            disabled={aiBtn.disabled}
+            style={{ display: 'flex', alignItems: 'center', ...aiBtn.style }}
+          >
+            {aiBtn.icon}
+            {aiBtn.label}
+          </button>
+        </div>
         <div className="tag-list">
           {(log.tags || []).map((tag, i) => (
             <span key={i} className="tag" style={tagStyle(tag)} title={tag.description || undefined}>
@@ -522,6 +689,50 @@ function LogCardRow({ log, expanded, onToggle, onEdit, onDelete, visibleFields }
 
 /* ---- Edit / Create panel ---- */
 function LogPanel({ log, onClose, onSave }) {
+  const [aiContext, setAiContext] = useState(null)
+  const [aiLoading, setAiLoading] = useState(false)
+
+  useEffect(() => {
+    if (!log?.id) return
+    let timer = null
+    const checkAiContext = async () => {
+      try {
+        const res = await client.get(`/logs/${log.id}/ai-context/`)
+        setAiContext(res.data)
+        if (res.data.status === 'pending') {
+          timer = setTimeout(checkAiContext, 1500)
+        } else {
+          setAiLoading(false)
+        }
+      } catch (err) {
+        if (err.response?.status !== 404) {
+          setAiLoading(false)
+        }
+      }
+    }
+
+    if (aiLoading) {
+      checkAiContext()
+    } else {
+      client.get(`/logs/${log.id}/ai-context/`).then(res => {
+        setAiContext(res.data)
+      }).catch(() => {})
+    }
+
+    return () => clearTimeout(timer)
+  }, [log?.id, aiLoading])
+
+  const handleGenerateAiContext = async (e) => {
+    e.preventDefault()
+    if (!log?.id) return
+    setAiLoading(true)
+    try {
+      await client.post(`/logs/${log.id}/ai-context/generate/`)
+    } catch (err) {
+      setAiLoading(false)
+    }
+  }
+
   const [form, setForm] = useState({
     hostname:       log?.hostname       || '',
     internal_ip:    log?.internal_ip    || '',
@@ -725,6 +936,85 @@ function LogPanel({ log, onClose, onSave }) {
             onRemove={handleRemoveTag}
           />
         </div>
+
+        {log?.id && (
+          <>
+            <div className="log-panel-section-title">AI ASSISTED CONTEXT</div>
+            <div className="form-group">
+              {aiLoading || (aiContext && aiContext.status === 'pending') ? (
+                <button type="button" className="btn btn-outline" disabled style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                  <span className="spinner" style={{ width: '14px', height: '14px', borderWidth: '2px' }}></span> Analyzing...
+                </button>
+              ) : aiContext && aiContext.status === 'complete' ? (
+                <div style={{ padding: '1rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <div style={{ fontStyle: 'italic', color: 'rgba(255,255,255,0.7)', marginBottom: '1.25rem', lineHeight: '1.5' }}>
+                    {aiContext.summary}
+                  </div>
+
+                  {aiContext.mitre_techniques && aiContext.mitre_techniques.length > 0 && (
+                    <div style={{ marginBottom: '1.25rem' }}>
+                      <div style={{ fontWeight: 'bold', fontSize: '0.85rem', marginBottom: '0.5rem', color: 'rgba(255,255,255,0.8)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>MITRE ATT&CK</div>
+                      {aiContext.mitre_techniques.map((t, idx) => (
+                        <div key={idx} style={{ marginBottom: '1rem', fontSize: '0.9rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            <a href={t.url} target="_blank" rel="noreferrer" style={{ color: '#818cf8', textDecoration: 'none', fontWeight: 'bold' }}>
+                              {t.technique_id}
+                            </a>
+                            <span style={{ color: 'rgba(255,255,255,0.9)' }}>{t.name}</span>
+                            <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '0.1rem 0.4rem', borderRadius: '4px', fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)' }}>
+                              {t.tactic}
+                            </span>
+                          </div>
+                          <div style={{ color: 'rgba(255,255,255,0.6)', marginTop: '0.25rem', lineHeight: '1.4' }}>
+                            {t.relevance_note}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {aiContext.cves && aiContext.cves.length > 0 && (
+                    <div>
+                      <div style={{ fontWeight: 'bold', fontSize: '0.85rem', marginBottom: '0.5rem', color: 'rgba(255,255,255,0.8)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>CVEs</div>
+                      {aiContext.cves.map((c, idx) => {
+                        const color = getCvssColor(c.cvss_score)
+                        const severityLabel = c.cvss_score >= 9.0 ? 'CRITICAL' : c.cvss_score >= 7.0 ? 'HIGH' : c.cvss_score >= 4.0 ? 'MEDIUM' : 'LOW'
+                        return (
+                          <div key={idx} style={{ marginBottom: '1rem', fontSize: '0.9rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                              <a href={c.url} target="_blank" rel="noreferrer" style={{ color: '#818cf8', textDecoration: 'none', fontWeight: 'bold' }}>
+                                {c.cve_id}
+                              </a>
+                              <span style={{ color: 'rgba(255,255,255,0.8)' }}>CVSS {c.cvss_score}</span>
+                              <span style={{ backgroundColor: color + '22', color: color, padding: '0.1rem 0.4rem', borderRadius: '4px', fontSize: '0.75rem', border: `1px solid ${color}55`, fontWeight: 'bold' }}>
+                                {severityLabel}
+                              </span>
+                            </div>
+                            <div style={{ color: 'rgba(255,255,255,0.6)', marginTop: '0.25rem', lineHeight: '1.4' }}>
+                              {c.relevance_note}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : aiContext && aiContext.status === 'error' ? (
+                <div style={{ padding: '1rem', backgroundColor: 'rgba(245, 158, 11, 0.1)', borderRadius: '4px', border: '1px solid rgba(245, 158, 11, 0.3)', color: '#fcd34d' }}>
+                  <div style={{ marginBottom: '0.5rem', fontWeight: 'bold' }}>Failed to generate AI context</div>
+                  <div style={{ fontSize: '0.85rem', marginBottom: '1rem', opacity: 0.8 }}>{aiContext.error_message}</div>
+                  <button type="button" className="btn btn-outline btn-sm" onClick={handleGenerateAiContext}>
+                    Retry Generation
+                  </button>
+                </div>
+              ) : (
+                <button type="button" className="btn btn-outline" style={{ width: '100%' }} onClick={handleGenerateAiContext}>
+                  Generate AI Context
+                </button>
+              )}
+            </div>
+          </>
+        )}
 
         <div className="log-panel-actions">
           <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>

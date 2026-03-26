@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.validators import MaxLengthValidator
 from django.db import models
 from django.db.models.functions import Lower
@@ -61,3 +62,33 @@ class Log(models.Model):
 
     def __str__(self):
         return f"Log {self.id} [{self.timestamp}]"
+
+class LogAIContext(models.Model):
+    log_entry = models.OneToOneField(
+        'Log',
+        on_delete=models.CASCADE,
+        related_name='ai_context'
+    )
+    generated_at = models.DateTimeField(auto_now=True)
+    status = models.CharField(
+        max_length=20,
+        choices=[('pending', 'pending'), ('complete', 'complete'), ('error', 'error')],
+        default='pending'
+    )
+    mitre_techniques = models.JSONField(default=list)
+    cves = models.JSONField(default=list)
+    summary = models.TextField(blank=True)
+    error_message = models.TextField(blank=True)
+    generated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True, on_delete=models.SET_NULL
+    )
+
+class LogAIContextSource(models.Model):
+    ai_context = models.ForeignKey(
+        LogAIContext, on_delete=models.CASCADE, related_name='sources'
+    )
+    source_type = models.CharField(max_length=20)
+    record_id = models.CharField(max_length=100)
+    source_url = models.URLField(blank=True)
+    retrieved_at = models.DateTimeField(auto_now_add=True)
