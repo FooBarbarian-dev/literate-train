@@ -94,3 +94,50 @@ class LogViewSet(viewsets.ModelViewSet):
             )
         deleted_count = Log.objects.filter(id__in=ids).delete()[0]
         return Response({"deleted": deleted_count})
+
+    @extend_schema(summary="Generate AI Context for a log entry", tags=["logs"])
+    @action(detail=True, methods=["post"], url_path="ai-context/generate")
+    def generate_ai_context(self, request, pk=None):
+        log = self.get_object()
+        force = request.data.get("force", False)
+
+        from logs.models import LogAIContext
+        from logs.serializers import LogAIContextSerializer
+
+        context, created = LogAIContext.objects.get_or_create(
+            log_entry=log,
+            defaults={
+                "status": "pending",
+                "generated_by": request.user.username if request.user else None
+            }
+        )
+
+        if not created and context.status == "complete" and not force:
+            return Response(LogAIContextSerializer(context).data)
+
+        context.status = "pending"
+        context.error_message = ""
+        context.save()
+
+        from logs.tasks import generate_log_ai_context
+        task = generate_log_ai_context.delay(log.id, context.id, request.user.id if request.user else 0)
+
+        return Response({
+            "task_id": task.id,
+            "context_id": context.id,
+            "status": "pending"
+        })
+
+    @extend_schema(summary="Get AI Context for a log entry", tags=["logs"])
+    @action(detail=True, methods=["get"], url_path="ai-context")
+    def get_ai_context(self, request, pk=None):
+        log = self.get_object()
+        from logs.models import LogAIContext
+        from logs.serializers import LogAIContextSerializer
+
+        try:
+            context = LogAIContext.objects.get(log_entry=log)
+        except LogAIContext.DoesNotExist:
+            return Response({"error": "No context found"}, status=status.HTTP_404_NOT_FOUND)
+
+        return Response(LogAIContextSerializer(context).data)
