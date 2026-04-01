@@ -324,7 +324,7 @@ def build_vector_store(
             cve_metas.append(
                 {
                     "cve_id": c.get("id", ""),
-                    "cvss_score": str(c.get("cvss_score", "")),
+                    "cvss_score": float(c.get("cvss_score") or 0.0),
                     "published_date": c.get("published_date", ""),
                 }
             )
@@ -349,6 +349,16 @@ def build_vector_store(
 # ---------------------------------------------------------------------------
 # Retriever factory
 # ---------------------------------------------------------------------------
+
+
+def get_mitre_collection():
+    """Return the MITRE ATT&CK Chroma vector store."""
+    return _chroma_collection("mitre_techniques", get_embeddings())
+
+
+def get_cve_collection():
+    """Return the NVD CVEs Chroma vector store."""
+    return _chroma_collection("nvd_cves", get_embeddings())
 
 
 def get_retriever() -> "BaseRetriever":
