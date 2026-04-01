@@ -112,6 +112,15 @@ class CveAttackAssistant(AIAssistant):
         try:
             collection = get_cve_collection()
             filter_kwargs = {"cvss_score": {"$gte": min_cvss}} if min_cvss > 0.0 else None
+
+            if not query.strip():
+                # If query is empty, do a pure metadata search to avoid embedding errors
+                res = collection._collection.get(where=filter_kwargs, limit=limit)
+                documents = res.get("documents", [])
+                if not documents:
+                    return f"No CVEs found with CVSS >= {min_cvss}."
+                return "\n\n".join(documents)
+
             results = collection.similarity_search(query, k=limit, filter=filter_kwargs)
             if not results:
                 return f"No CVEs found matching '{query}' with CVSS >= {min_cvss}."
