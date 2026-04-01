@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from logs.models import Log
+from logs import models
 from logs.encryption import decrypt_field
 from accounts.validators import validate_ip_address, normalize_mac_address
 
@@ -88,3 +89,18 @@ class LogListSerializer(serializers.ModelSerializer):
         if obj.secrets:
             return decrypt_field(obj.secrets)
         return None
+
+class LogAIContextSourceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.LogAIContextSource
+        fields = ["source_type", "record_id", "source_url"]
+
+class LogAIContextSerializer(serializers.ModelSerializer):
+    sources = LogAIContextSourceSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = models.LogAIContext
+        fields = [
+            "id", "status", "generated_at", "summary",
+            "mitre_techniques", "cves", "sources", "error_message"
+        ]
