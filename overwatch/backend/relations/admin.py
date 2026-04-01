@@ -70,12 +70,12 @@ class RelationAdmin(admin.ModelAdmin):
         "source_value_short",
         "target_type",
         "target_value_short",
-        "pattern_type",
+        "relationship_type",
         "strength",
         "connection_count",
         "last_seen",
     )
-    list_filter = ("source_type", "target_type", "pattern_type")
+    list_filter = ("source_type", "target_type", "relationship_type")
     search_fields = ("source_value", "target_value")
     readonly_fields = ("first_seen", "last_seen")
     date_hierarchy = "last_seen"

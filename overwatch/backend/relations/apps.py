@@ -5,3 +5,6 @@ class RelationsConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "relations"
     verbose_name = "Relations"
+
+    def ready(self):
+        import relations.signals  # noqa: F401

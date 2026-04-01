@@ -5,37 +5,45 @@ from django.db import models
 class Relation(models.Model):
     """Tracks relationships between entities discovered through log analysis."""
 
-    PATTERN_TYPE_CHOICES = [
-        ("command_sequence", "Command Sequence"),
-        ("command_cooccurrence", "Command Co-occurrence"),
-        ("user_pattern", "User Pattern"),
-        ("host_pattern", "Host Pattern"),
-        ("tag_cooccurrence", "Tag Co-occurrence"),
-        ("tag_sequence", "Tag Sequence"),
+    SOURCE_TYPE_CHOICES = [
+        ("hostname", "Hostname"),
+        ("ip", "IP"),
+        ("domain", "Domain"),
+        ("username", "Username"),
     ]
 
-    source_type = models.CharField(max_length=50)
-    source_value = models.TextField()
-    target_type = models.CharField(max_length=50)
-    target_value = models.TextField()
+    TARGET_TYPE_CHOICES = [
+        ("hostname", "Hostname"),
+        ("ip", "IP"),
+        ("domain", "Domain"),
+        ("command", "Command"),
+    ]
 
-    strength = models.IntegerField(default=1)
-    connection_count = models.IntegerField(default=1)
+    RELATIONSHIP_TYPE_CHOICES = [
+        ("host", "Host"),
+        ("ip", "IP"),
+        ("domain", "Domain"),
+        ("user_command", "User Command"),
+    ]
 
-    pattern_type = models.CharField(
-        max_length=50,
-        choices=PATTERN_TYPE_CHOICES,
-        null=True,
-        blank=True,
+    source_type = models.CharField(max_length=20, choices=SOURCE_TYPE_CHOICES)
+    source_value = models.CharField(max_length=255)
+    target_type = models.CharField(max_length=20, choices=TARGET_TYPE_CHOICES)
+    target_value = models.CharField(max_length=255)
+
+    relationship_type = models.CharField(
+        max_length=30,
+        choices=RELATIONSHIP_TYPE_CHOICES,
     )
+
+    strength = models.PositiveIntegerField(default=1)
+    connection_count = models.PositiveIntegerField(default=1)
 
     first_seen = models.DateTimeField(auto_now_add=True)
     last_seen = models.DateTimeField(auto_now=True)
 
-    metadata = models.JSONField(default=dict, blank=True)
-
     operation_tags = ArrayField(
-        models.IntegerField(),
+        models.CharField(max_length=255),
         default=list,
         blank=True,
     )
@@ -44,6 +52,7 @@ class Relation(models.Model):
         default=list,
         blank=True,
     )
+    metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:
         db_table = "relations"
@@ -54,10 +63,9 @@ class Relation(models.Model):
             ),
         ]
         indexes = [
-            models.Index(fields=["source_type", "source_value"], name="idx_rel_source"),
-            models.Index(fields=["target_type", "target_value"], name="idx_rel_target"),
-            models.Index(fields=["pattern_type"], name="idx_rel_pattern_type"),
-            models.Index(fields=["last_seen"], name="idx_rel_last_seen"),
+            models.Index(fields=["source_type"], name="idx_rel_source_type"),
+            models.Index(fields=["target_type"], name="idx_rel_target_type"),
+            models.Index(fields=["relationship_type"], name="idx_rel_rel_type"),
         ]
 
     def __str__(self):
