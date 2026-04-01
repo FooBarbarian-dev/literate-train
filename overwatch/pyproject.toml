@@ -75,7 +75,8 @@ packages = [
     "ingest", "ingest.migrations",
     "logs", "logs.migrations",
     "operations", "operations.management", "operations.management.commands", "operations.migrations",
-    "relations", "relations.migrations",
+    "relations", "relations.migrations", "relations.analyzers",
+    "relations.management", "relations.management.commands", "relations.tests",
     "sessions_mgmt", "sessions_mgmt.migrations",
     "tags", "tags.migrations",
     "templates_mgmt", "templates_mgmt.migrations",
@@ -108,7 +109,11 @@ operations = "backend/operations"
 "operations.management.commands" = "backend/operations/management/commands"
 "operations.migrations" = "backend/operations/migrations"
 relations = "backend/relations"
+"relations.analyzers" = "backend/relations/analyzers"
+"relations.management" = "backend/relations/management"
+"relations.management.commands" = "backend/relations/management/commands"
 "relations.migrations" = "backend/relations/migrations"
+"relations.tests" = "backend/relations/tests"
 sessions_mgmt = "backend/sessions_mgmt"
 "sessions_mgmt.migrations" = "backend/sessions_mgmt/migrations"
 tags = "backend/tags"

@@ -1,9 +1,12 @@
+from collections import defaultdict
+
 from django.db.models import Q
 from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from accounts.permissions import IsAdmin, IsJWTAuthenticated
 from relations.models import (
     FileStatus,
     FileStatusHistory,
@@ -40,21 +43,17 @@ class RelationViewSet(viewsets.ModelViewSet):
 
     queryset = Relation.objects.all()
     serializer_class = RelationSerializer
+    permission_classes = [IsJWTAuthenticated]
     filterset_fields = [
         "source_type",
         "target_type",
-        "pattern_type",
+        "relationship_type",
     ]
     search_fields = ["source_value", "target_value"]
     ordering_fields = ["strength", "connection_count", "last_seen", "first_seen"]
 
     @extend_schema(
         summary="Bulk ingest relations",
-        description=(
-            "Accept an array of relations and upsert them. "
-            "Matching is done on the unique constraint "
-            "(source_type, source_value, target_type, target_value)."
-        ),
         request=RelationBulkItemSerializer(many=True),
         responses={200: RelationSerializer(many=True)},
     )
@@ -91,42 +90,16 @@ class RelationViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         summary="Get relation graph",
-        description=(
-            "Return nodes and edges suitable for graph visualization. "
-            "Optionally filter by source_type, target_type, or pattern_type."
-        ),
+        description="Return nodes and edges for graph visualization, filtered by relationship_type.",
         parameters=[
-            OpenApiParameter(name="source_type", required=False, type=str),
-            OpenApiParameter(name="target_type", required=False, type=str),
-            OpenApiParameter(name="pattern_type", required=False, type=str),
+            OpenApiParameter(name="relationship_type", required=False, type=str),
         ],
         responses={
             200: {
                 "type": "object",
                 "properties": {
-                    "nodes": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "id": {"type": "string"},
-                                "type": {"type": "string"},
-                                "value": {"type": "string"},
-                            },
-                        },
-                    },
-                    "edges": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "source": {"type": "string"},
-                                "target": {"type": "string"},
-                                "strength": {"type": "integer"},
-                                "pattern_type": {"type": "string"},
-                            },
-                        },
-                    },
+                    "nodes": {"type": "array", "items": {"type": "object"}},
+                    "edges": {"type": "array", "items": {"type": "object"}},
                 },
             }
         },
@@ -135,23 +108,20 @@ class RelationViewSet(viewsets.ModelViewSet):
     def graph(self, request):
         qs = self.get_queryset()
 
-        source_type = request.query_params.get("source_type")
-        target_type = request.query_params.get("target_type")
-        pattern_type = request.query_params.get("pattern_type")
-
-        if source_type:
-            qs = qs.filter(source_type=source_type)
-        if target_type:
-            qs = qs.filter(target_type=target_type)
-        if pattern_type:
-            qs = qs.filter(pattern_type=pattern_type)
+        relationship_type = request.query_params.get("relationship_type")
+        if relationship_type:
+            qs = qs.filter(relationship_type=relationship_type)
 
         nodes: dict[str, dict] = {}
         edges: list[dict] = []
+        connection_counts: dict[str, int] = defaultdict(int)
 
         for rel in qs.iterator():
             src_id = f"{rel.source_type}:{rel.source_value}"
             tgt_id = f"{rel.target_type}:{rel.target_value}"
+
+            connection_counts[src_id] += 1
+            connection_counts[tgt_id] += 1
 
             if src_id not in nodes:
                 nodes[src_id] = {
@@ -171,12 +141,52 @@ class RelationViewSet(viewsets.ModelViewSet):
                     "source": src_id,
                     "target": tgt_id,
                     "strength": rel.strength,
-                    "pattern_type": rel.pattern_type,
+                    "operation_tags": rel.operation_tags,
+                    "log_ids": rel.source_log_ids,
                 }
             )
 
+        # Attach connection counts to nodes
+        for node_id, node in nodes.items():
+            node["connections"] = connection_counts[node_id]
+
         return Response(
             {"nodes": list(nodes.values()), "edges": edges},
+            status=status.HTTP_200_OK,
+        )
+
+    @extend_schema(
+        summary="Relation summary",
+        description="Return counts of relations by relationship_type.",
+    )
+    @action(detail=False, methods=["get"], url_path="summary")
+    def summary(self, request):
+        from django.db.models import Count
+
+        counts = (
+            Relation.objects.values("relationship_type")
+            .annotate(count=Count("id"))
+            .order_by("relationship_type")
+        )
+        return Response(list(counts))
+
+    @extend_schema(
+        summary="Rebuild all relations",
+        description="Admin only. Truncate and rebuild all relations from logs.",
+    )
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="rebuild",
+        permission_classes=[IsAdmin],
+    )
+    def rebuild(self, request):
+        from relations.services import rebuild_all_relations
+
+        results = rebuild_all_relations()
+        total = Relation.objects.count()
+        return Response(
+            {"results": results, "total": total},
             status=status.HTTP_200_OK,
         )
 
@@ -205,7 +215,6 @@ class LogRelationshipViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         summary="Get relationships for a log entry",
-        description="Return all LogRelationships where the given log_id appears as source or target.",
         parameters=[
             OpenApiParameter(name="log_id", location="path", required=True, type=int),
         ],
@@ -269,11 +278,6 @@ class FileStatusViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         summary="Upsert a file status",
-        description=(
-            "Create or update a FileStatus entry keyed on "
-            "(filename, hostname, internal_ip). If the status changes, "
-            "a FileStatusHistory record is created automatically."
-        ),
         request=FileStatusUpsertSerializer,
         responses={200: FileStatusSerializer, 201: FileStatusSerializer},
     )
@@ -332,7 +336,6 @@ class FileStatusViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         summary="Get history for a file status",
-        description="Return all FileStatusHistory records matching the file's filename and hostname.",
         responses={200: FileStatusHistorySerializer(many=True)},
     )
     @action(detail=True, methods=["get"], url_path="history")

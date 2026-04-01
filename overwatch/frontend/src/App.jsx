@@ -9,6 +9,7 @@ import SettingsPage from './pages/SettingsPage'
 import ThreatIntelPage from './pages/ThreatIntelPage'
 import ChatPage from './pages/ChatPage'
 import ExportPage from './pages/ExportPage'
+import RelationshipsPage from './pages/RelationshipsPage'
 
 function NavBar() {
   const { user, logout } = useAuth()
@@ -20,6 +21,7 @@ function NavBar() {
     { path: '/logs', label: 'Logs' },
     { path: '/operations', label: 'Operations' },
     { path: '/tags', label: 'Tags' },
+    { path: '/relationships', label: 'Relationships' },
     { path: '/threat-intel', label: 'Threat Intel' },
     { path: '/export', label: 'Export' },
     { path: '/settings', label: 'Settings' },
@@ -135,6 +137,14 @@ function AppRoutes() {
             element={
               <ProtectedRoute>
                 <SettingsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/relationships"
+            element={
+              <ProtectedRoute>
+                <RelationshipsPage />
               </ProtectedRoute>
             }
           />
