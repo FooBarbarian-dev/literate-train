@@ -6,14 +6,14 @@ from django import forms
 import json
 
 from django.urls import path
-from logs.models import LogEntry
+from logs.models import Log
 from operations.models import Operation
 from common.redis_client import get_encrypted_redis
 from accounts.htmx_auth import htmx_login_required
 
 class LogForm(forms.ModelForm):
     class Meta:
-        model = LogEntry
+        model = Log
         fields = ['hostname', 'command', 'notes', 'status']
 
 @htmx_login_required
@@ -37,7 +37,7 @@ def logs_page(request):
 @require_http_methods(["GET"])
 @htmx_login_required
 def logs_list_htmx(request):
-    qs = LogEntry.objects.all().order_by('-timestamp')
+    qs = Log.objects.all().order_by('-timestamp')
 
     hostname = request.GET.get('hostname')
     if hostname:
@@ -77,7 +77,7 @@ def logs_list_htmx(request):
 @htmx_login_required
 def log_panel(request):
     log_id = request.GET.get('log_id')
-    log = get_object_or_404(LogEntry, id=log_id) if log_id else None
+    log = get_object_or_404(Log, id=log_id) if log_id else None
     form = LogForm(instance=log)
     return render(request, 'logs/partials/panel.html', {'form': form, 'log': log})
 
@@ -85,7 +85,7 @@ def log_panel(request):
 @htmx_login_required
 def log_save_htmx(request):
     log_id = request.POST.get('log_id')
-    log = get_object_or_404(LogEntry, id=log_id) if log_id else None
+    log = get_object_or_404(Log, id=log_id) if log_id else None
 
     form = LogForm(request.POST, instance=log)
     if not form.is_valid():
@@ -110,7 +110,7 @@ def log_save_htmx(request):
 @require_http_methods(["DELETE"])
 @htmx_login_required
 def log_delete_htmx(request, log_id):
-    log = get_object_or_404(LogEntry, id=log_id)
+    log = get_object_or_404(Log, id=log_id)
     log.delete()
     response = HttpResponse()
     response['HX-Trigger'] = 'logsUpdated'
@@ -119,7 +119,7 @@ def log_delete_htmx(request, log_id):
 @require_http_methods(["GET"])
 @htmx_login_required
 def log_toggle(request, log_id):
-    log = get_object_or_404(LogEntry, id=log_id)
+    log = get_object_or_404(Log, id=log_id)
     expanded_str = request.GET.get('expanded', 'false').lower()
     log.expanded = expanded_str == 'true'
     return render(request, 'logs/partials/log_card.html', {'log': log})
