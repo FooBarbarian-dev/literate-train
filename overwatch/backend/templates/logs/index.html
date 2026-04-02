@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Logs - Overwatch{% end block %}
+{% block title %}Logs - Overwatch{% endblock %}
 
 {% block content %}
 <div class="page logs-page {% if show_panel %}panel-open{% endif %}">
@@ -93,4 +93,4 @@
     document.addEventListener("DOMContentLoaded", applyCardFields);
     document.body.addEventListener("htmx:afterSwap", applyCardFields);
 </script>
-{% end block %}
+{% endblock %}

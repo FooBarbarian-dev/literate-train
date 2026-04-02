@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Overwatch{% end block %}</title>
+    <title>{% block title %}Overwatch{% endblock %}</title>
 
     <!-- HTMX -->
     <meta name="htmx-config" content='{"withCredentials":true}'>
@@ -38,16 +38,16 @@
         }
     </style>
 
-    {% block extra_head %}{% end block %}
+    {% block extra_head %}{% endblock %}
 </head>
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
     {% if request.user.is_authenticated %}
         {% include "partials/navbar.html" %}
         <div class="main-content">
-            {% block content %}{% end block %}
+            {% block content %}{% endblock %}
         </div>
     {% else %}
-        {% block unauth_content %}{% end block %}
+        {% block unauth_content %}{% endblock %}
     {% endif %}
 
     <script>
@@ -58,6 +58,6 @@
         }
     </script>
 
-    {% block extra_scripts %}{% end block %}
+    {% block extra_scripts %}{% endblock %}
 </body>
 </html>
