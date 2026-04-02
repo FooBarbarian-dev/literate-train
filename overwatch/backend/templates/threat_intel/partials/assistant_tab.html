@@ -1,0 +1,34 @@
+<div class="ti-assistant-layout">
+    <div class="ti-session-sidebar">
+        <div class="ti-session-sidebar-top">
+            <button class="btn btn-primary btn-sm ti-new-chat-btn"
+                    hx-post="{% url 'threat_intel:chat-session-create' %}"
+                    hx-target="#assistant-tab-content">
+                + New Chat
+            </button>
+        </div>
+        {% include "threat_intel/partials/chat_sessions_list_container.html" %}
+    </div>
+
+    <div class="ti-chat-area" id="chat-area">
+        <!-- Default chat area, or loads specific session based on clicks -->
+        <div class="ti-chat-area-header">
+            <span class="ti-chat-session-label">Select or create a session</span>
+        </div>
+        <div class="ti-chat-body">
+            <div class="chat-empty">
+                <div class="chat-empty-icon">⊙</div>
+                <p>Create a new session or select one from the sidebar to start chatting.</p>
+                <button class="btn btn-primary" style="margin-top: 12px"
+                        hx-post="{% url 'threat_intel:chat-session-create' %}"
+                        hx-target="#ti-tab-panel">
+                    + New Chat
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="rag-panel-container" hx-get="{% url 'threat_intel:rag-panel-htmx' %}" hx-trigger="load, reloadRagPanel from:body">
+        <!-- RAG status loads here -->
+    </div>
+</div>

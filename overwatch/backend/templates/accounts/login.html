@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Login - Overwatch{% end block %}
+
+{% block unauth_content %}
+<div class="login-container">
+    <div class="login-card">
+        <div class="login-header">
+            <img
+                src="/static/logo-192x192.png"
+                alt="Overwatch Logo"
+                class="login-logo"
+                onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect width=\'100%25\' height=\'100%25\' fill=\'gray\' /%3E%3Ctext x=\'50%25\' y=\'50%25\' font-size=\'50\' text-anchor=\'middle\' dominant-baseline=\'middle\' fill=\'white\'%3E?%3C/text%3E%3C/svg%3E';"
+            />
+            <h1>OVERWATCH</h1>
+            <p class="login-subtitle">Security Operations Logger</p>
+        </div>
+
+        {% include "accounts/partials/login_form.html" %}
+
+        <div class="login-footer">
+            <p>Authorized personnel only</p>
+        </div>
+    </div>
+</div>
+{% end block %}

@@ -1,0 +1,53 @@
+{% if techniques %}
+    <div class="ti-mitre-list">
+        {% for tech in techniques %}
+            <div class="ti-mitre-card">
+                <div class="ti-mitre-card-header">
+                    <span class="ti-mitre-id">{{ tech.external_id }}</span>
+                    <span class="ti-mitre-name">{{ tech.name }}</span>
+                    <button class="ti-ask-ai-btn"
+                            onclick="switchToAssistantAndAsk('Explain the MITRE ATT&CK technique {{ tech.external_id }} ({{ tech.name }}) — what does it do, how is it detected, and what mitigations exist?');">
+                        Ask AI
+                    </button>
+                </div>
+                <div class="ti-mitre-tactics">
+                    {% for tactic in tech.tactics %}
+                        <span class="ti-mitre-tactic-pill">{{ tactic }}</span>
+                    {% endfor %}
+                </div>
+                <div class="ti-mitre-desc">{{ tech.description|truncatewords:40 }}</div>
+            </div>
+        {% endfor %}
+    </div>
+
+    {% if page_obj.has_other_pages %}
+        <div class="pagination">
+            <button class="btn btn-sm btn-ghost" hx-get="?page={{ page_obj.previous_page_number }}" hx-include=".filters-bar" hx-target="#mitre-list" {% if not page_obj.has_previous %}disabled{% endif %}>Prev</button>
+            <span class="pagination-info">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+            <button class="btn btn-sm btn-ghost" hx-get="?page={{ page_obj.next_page_number }}" hx-include=".filters-bar" hx-target="#mitre-list" {% if not page_obj.has_next %}disabled{% endif %}>Next</button>
+        </div>
+    {% endif %}
+{% else %}
+    <div class="empty-state">No techniques found.</div>
+{% endif %}
+
+<script>
+    function switchToAssistantAndAsk(query) {
+        // Activate assistant tab
+        document.querySelectorAll('.ti-tab').forEach(t => t.classList.remove('ti-tab-active'));
+        const assistantTabBtn = document.querySelector('.ti-tab:nth-child(3)');
+        if (assistantTabBtn) {
+            assistantTabBtn.classList.add('ti-tab-active');
+            htmx.trigger(assistantTabBtn, 'click'); // Let HTMX load the assistant tab
+
+            // We need to wait for the tab to load before setting the query
+            setTimeout(() => {
+                const inputField = document.querySelector('.chat-input');
+                if (inputField) {
+                    inputField.value = query;
+                    inputField.focus();
+                }
+            }, 500);
+        }
+    }
+</script>

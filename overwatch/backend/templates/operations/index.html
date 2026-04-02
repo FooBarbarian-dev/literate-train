@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Operations - Overwatch{% end block %}
+
+{% block content %}
+<div class="page">
+    <div class="page-header">
+        <h1>Operations</h1>
+        {% if request.user.role == 'admin' %}
+            <button
+                class="btn btn-primary"
+                hx-get="{% url 'operations:create-operation-modal' %}"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+                + New Operation
+            </button>
+        {% endif %}
+    </div>
+
+    <!-- Container for dynamic alerts -->
+    <div id="operations-alerts"></div>
+
+    <div id="operations-list"
+         hx-get="{% url 'operations:operations-list-htmx' %}"
+         hx-trigger="load, operationsUpdated from:body">
+
+        <div class="loading-inline" id="operations-loading">
+            <div class="loading-spinner"></div>
+            <span>Loading operations...</span>
+        </div>
+
+    </div>
+</div>
+
+<div id="modal-container"></div>
+{% end block %}

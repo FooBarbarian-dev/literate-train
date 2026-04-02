@@ -1,0 +1,43 @@
+<nav class="navbar">
+    <div class="navbar-brand">
+        <a href="/logs" class="navbar-logo">
+            <img
+                src="/static/logo-192x192.png"
+                alt="Overwatch Logo"
+                class="logo-icon"
+                onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect width=\'100%25\' height=\'100%25\' fill=\'gray\' /%3E%3Ctext x=\'50%25\' y=\'50%25\' font-size=\'50\' text-anchor=\'middle\' dominant-baseline=\'middle\' fill=\'white\'%3E?%3C/text%3E%3C/svg%3E';"
+            /> OVERWATCH
+        </a>
+        <span class="navbar-subtitle">Security Operations Logger</span>
+    </div>
+
+    <div class="navbar-links">
+        <a href="/logs" class="navbar-link {% if request.path == '/logs/' %}active{% endif %}">Logs</a>
+        <a href="/operations" class="navbar-link {% if request.path == '/operations/' %}active{% endif %}">Operations</a>
+        <a href="/tags" class="navbar-link {% if request.path == '/tags/' %}active{% endif %}">Tags</a>
+        <a href="/relationships" class="navbar-link {% if request.path == '/relationships/' %}active{% endif %}">Relationships</a>
+        <a href="/threat-intel" class="navbar-link {% if request.path == '/threat-intel/' %}active{% endif %}">Threat Intel</a>
+        <a href="/export" class="navbar-link {% if request.path == '/export/' %}active{% endif %}">Export</a>
+        <a href="/settings" class="navbar-link {% if request.path == '/settings/' %}active{% endif %}">Settings</a>
+
+        {% if request.user.role == 'admin' %}
+            <span class="navbar-divider"></span>
+            <a href="/admin/" class="navbar-link navbar-link-admin" target="_blank" rel="noopener noreferrer">Admin &#8599;</a>
+            <a href="/api/schema/swagger-ui/" class="navbar-link navbar-link-admin" target="_blank" rel="noopener noreferrer">API Docs &#8599;</a>
+        {% endif %}
+    </div>
+
+    <div class="navbar-user">
+        <span class="navbar-username">{{ request.user.username }}</span>
+        {% if request.user.role == 'admin' %}
+            <span class="badge badge-admin">Admin</span>
+        {% endif %}
+
+        <button
+            hx-post="{% url 'accounts:auth-logout-htmx' %}"
+            hx-target="body"
+            class="btn btn-sm btn-ghost">
+            Logout
+        </button>
+    </div>
+</nav>

@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Export Database - Overwatch{% end block %}
+
+{% block content %}
+<div class="page">
+    <div class="page-header">
+        <h1>Export Database</h1>
+    </div>
+
+    <div class="export-layout">
+        <div class="export-panel">
+            <div class="export-panel-header">
+                <h2>Select Columns</h2>
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-ghost" onclick="document.querySelectorAll('.export-field-checkbox').forEach(cb => cb.checked = true); updateCount();">
+                        Select All
+                    </button>
+                    <button class="btn btn-sm btn-ghost" onclick="document.querySelectorAll('.export-field-checkbox').forEach(cb => cb.checked = false); updateCount();">
+                        Clear
+                    </button>
+                </div>
+            </div>
+
+            <form id="export-form" method="GET" action="{% url 'export:export-csv' %}" onsubmit="return validateExportForm()">
+                <div class="export-type-row">
+                    <span class="export-type-label">Export Type:</span>
+                    <div class="btn-group export-type-toggle">
+                        <button type="button" class="btn btn-sm btn-primary" id="btn-csv" onclick="setFormat('csv')">CSV</button>
+                        <button type="button" class="btn btn-sm btn-ghost" id="btn-json" onclick="setFormat('json')">JSON</button>
+                    </div>
+                </div>
+
+                <div id="export-error" class="alert alert-error" style="display:none;"></div>
+
+                <div class="export-fields-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="export-fields-col">
+                        {% for field in left_fields %}
+                            <label class="export-field-row" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                <input type="checkbox" name="fields" value="{{ field.name }}" class="export-field-checkbox" onchange="updateCount()" {% if field.name in default_selected %}checked{% endif %}>
+                                <span class="export-field-name" style="font-weight: 500;">{{ field.name }}</span>
+                                <span class="export-field-type" style="color: var(--text-muted); font-size: 0.8em; margin-left: auto;">{{ field.type }}</span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                    <div class="export-fields-col">
+                        {% for field in right_fields %}
+                            <label class="export-field-row" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                <input type="checkbox" name="fields" value="{{ field.name }}" class="export-field-checkbox" onchange="updateCount()" {% if field.name in default_selected %}checked{% endif %}>
+                                <span class="export-field-name" style="font-weight: 500;">{{ field.name }}</span>
+                                <span class="export-field-type" style="color: var(--text-muted); font-size: 0.8em; margin-left: auto;">{{ field.type }}</span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="export-actions" style="margin-top: 2rem; display: flex; align-items: center; gap: 1rem;">
+                    <button type="submit" class="btn btn-primary" id="export-btn">
+                        Export Selected Columns
+                    </button>
+                    <span class="export-count-hint" style="color: var(--text-muted); font-size: 0.9em;">
+                        <span id="selected-count"></span> / {{ total_fields }} columns selected
+                    </span>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    const baseUrlCsv = "{% url 'export:export-csv' %}";
+    const baseUrlJson = "{% url 'export:export-json' %}";
+
+    function setFormat(format) {
+        const form = document.getElementById('export-form');
+        const btnCsv = document.getElementById('btn-csv');
+        const btnJson = document.getElementById('btn-json');
+
+        if (format === 'csv') {
+            form.action = baseUrlCsv;
+            btnCsv.classList.replace('btn-ghost', 'btn-primary');
+            btnJson.classList.replace('btn-primary', 'btn-ghost');
+        } else {
+            form.action = baseUrlJson;
+            btnJson.classList.replace('btn-ghost', 'btn-primary');
+            btnCsv.classList.replace('btn-primary', 'btn-ghost');
+        }
+    }
+
+    function updateCount() {
+        const selected = document.querySelectorAll('.export-field-checkbox:checked').length;
+        document.getElementById('selected-count').innerText = selected;
+        document.getElementById('export-btn').disabled = selected === 0;
+    }
+
+    function validateExportForm() {
+        const selected = document.querySelectorAll('.export-field-checkbox:checked').length;
+        const errDiv = document.getElementById('export-error');
+        if (selected === 0) {
+            errDiv.innerText = "Select at least one column to export.";
+            errDiv.style.display = 'block';
+            return false;
+        }
+        errDiv.style.display = 'none';
+
+        // Reset button state shortly after submit to allow multiple exports
+        const btn = document.getElementById('export-btn');
+        btn.innerText = "Exporting...";
+        setTimeout(() => {
+            btn.innerText = "Export Selected Columns";
+        }, 2000);
+
+        return true;
+    }
+
+    // Init count on load
+    document.addEventListener("DOMContentLoaded", updateCount);
+</script>
+{% end block %}

@@ -1,0 +1,37 @@
+{% if error %}
+    <div class="alert alert-error">{{ error }}</div>
+{% endif %}
+
+{% if api_key %}
+    <div class="api-key-display">
+        <code class="api-key-value" id="new-api-key">{{ api_key }}</code>
+        <button class="btn btn-sm btn-ghost" onclick="navigator.clipboard.writeText(document.getElementById('new-api-key').innerText); this.innerText='Copied!'; setTimeout(() => this.innerText='Copy', 2000);">
+            Copy
+        </button>
+        <p class="api-key-warning">
+            Store this key securely. It will not be shown again.
+        </p>
+    </div>
+{% endif %}
+
+<div class="btn-group">
+    <button class="btn btn-primary"
+            hx-post="{% url 'api_keys:generate-key-htmx' %}"
+            hx-target="#api-key-container"
+            hx-swap="innerHTML"
+            hx-indicator="#key-spinner"
+            hx-disabled-elt="this">
+        <span id="key-text">Generate New Key</span>
+        <span id="key-spinner" class="htmx-indicator"><span class="loading-spinner"></span> Generating...</span>
+    </button>
+    <button class="btn btn-danger"
+            hx-post="{% url 'api_keys:revoke-keys-htmx' %}"
+            hx-confirm="Revoke all API keys? This cannot be undone."
+            hx-target="#api-key-container"
+            hx-swap="innerHTML"
+            hx-indicator="#revoke-spinner"
+            hx-disabled-elt="this">
+        <span id="revoke-text">Revoke All Keys</span>
+        <span id="revoke-spinner" class="htmx-indicator"><span class="loading-spinner"></span> Revoking...</span>
+    </button>
+</div>

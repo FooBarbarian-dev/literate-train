@@ -1,0 +1,51 @@
+{% if error %}
+    <div class="chat-empty">
+        <p class="text-error">{{ error }}</p>
+    </div>
+{% endif %}
+
+{% if not messages and not error %}
+    <div class="chat-empty">
+        <p>No messages yet. Ask a question below.</p>
+    </div>
+{% endif %}
+
+{% if request.method == "GET" and not task_id %}
+<!-- Initial load logic -->
+<div class="chat-messages" id="chat-messages-container">
+    {% for msg in messages %}
+        <div class="chat-bubble chat-bubble-{{ msg.role|default:'user' }}">
+            <div class="chat-bubble-label">
+                {% if msg.role == 'user' %}You{% else %}Assistant{% endif %}
+            </div>
+            <div class="chat-bubble-content" style="white-space: pre-wrap; font-family: {% if msg.role == 'assistant' %}var(--font-mono){% else %}inherit{% endif %};">{{ msg.content }}</div>
+        </div>
+    {% endfor %}
+</div>
+
+{% else %}
+
+<!-- Appended post logic -->
+{% for msg in messages %}
+    <div class="chat-bubble chat-bubble-{{ msg.role|default:'user' }}">
+        <div class="chat-bubble-label">
+            {% if msg.role == 'user' %}You{% else %}Assistant{% endif %}
+        </div>
+        <div class="chat-bubble-content" style="white-space: pre-wrap; font-family: {% if msg.role == 'assistant' %}var(--font-mono){% else %}inherit{% endif %};">{{ msg.content }}</div>
+    </div>
+{% endfor %}
+
+<!-- If waiting for a celery task -->
+{% if task_id and not error %}
+    {% include "threat_intel/partials/chat_polling.html" %}
+{% endif %}
+
+{% endif %}
+
+<script>
+    // Scroll to bottom
+    var container = document.getElementById('chat-messages-container');
+    if (container) {
+        container.parentElement.scrollTop = container.parentElement.scrollHeight;
+    }
+</script>

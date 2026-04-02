@@ -1,0 +1,25 @@
+<div class="ti-mitre-tab">
+    <div class="filters-bar" hx-get="{% url 'threat_intel:mitre-list-htmx' %}" hx-trigger="input from:input delay:300ms, change from:select" hx-target="#mitre-list">
+        <input type="text" name="search" placeholder="Search techniques..." class="filter-input filter-input-wide" />
+        <select name="tactic" class="filter-input">
+            <option value="">All Tactics</option>
+            <!-- In a full implementation, these options would come from the database -->
+            <option value="initial-access">Initial Access</option>
+            <option value="execution">Execution</option>
+            <option value="persistence">Persistence</option>
+            <option value="privilege-escalation">Privilege Escalation</option>
+            <option value="defense-evasion">Defense Evasion</option>
+            <option value="credential-access">Credential Access</option>
+            <option value="discovery">Discovery</option>
+            <option value="lateral-movement">Lateral Movement</option>
+            <option value="collection">Collection</option>
+            <option value="command-and-control">Command and Control</option>
+            <option value="exfiltration">Exfiltration</option>
+            <option value="impact">Impact</option>
+        </select>
+    </div>
+
+    <div id="mitre-list" hx-get="{% url 'threat_intel:mitre-list-htmx' %}" hx-trigger="load">
+        <div class="loading-inline"><div class="loading-spinner"></div> Loading MITRE techniques...</div>
+    </div>
+</div>

@@ -1,0 +1,54 @@
+<div class="log-panel-overlay" onclick="document.getElementById('panel-container').innerHTML = ''">
+    <div class="log-panel" onclick="event.stopPropagation()">
+        <div class="log-panel-header">
+            <h2>{% if log %}Edit Log{% else %}New Log{% endif %}</h2>
+            <button class="btn btn-ghost" onclick="document.getElementById('panel-container').innerHTML = ''">&#10005;</button>
+        </div>
+
+        <form hx-post="{% url 'logs:log-save-htmx' %}"
+              hx-target="this"
+              hx-swap="outerHTML"
+              class="log-panel-body">
+
+            {% csrf_token %}
+            {% if log %}<input type="hidden" name="log_id" value="{{ log.id }}">{% endif %}
+
+            {% if error %}
+                <div class="alert alert-error">{{ error }}</div>
+            {% endif %}
+
+            <div class="form-group">
+                <label>Hostname</label>
+                <input name="hostname" value="{{ form.hostname.value|default:'' }}" required>
+            </div>
+
+            <div class="form-group">
+                <label>Command</label>
+                <textarea name="command" rows="3">{{ form.command.value|default:'' }}</textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Notes</label>
+                <textarea name="notes" rows="3">{{ form.notes.value|default:'' }}</textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Status</label>
+                <select name="status">
+                    <option value="success" {% if form.status.value == 'success' %}selected{% endif %}>Success</option>
+                    <option value="failure" {% if form.status.value == 'failure' %}selected{% endif %}>Failure</option>
+                    <option value="in_progress" {% if form.status.value == 'in_progress' %}selected{% endif %}>In Progress</option>
+                    <option value="blocked" {% if form.status.value == 'blocked' %}selected{% endif %}>Blocked</option>
+                </select>
+            </div>
+
+            <div class="log-panel-actions">
+                <button type="button" class="btn btn-ghost" onclick="document.getElementById('panel-container').innerHTML = ''">Cancel</button>
+                <button type="submit" class="btn btn-primary" hx-indicator="#saving-spinner" hx-disabled-elt="this">
+                    <span id="saving-text">{% if log %}Update{% else %}Create{% endif %}</span>
+                    <span id="saving-spinner" class="htmx-indicator"><span class="loading-spinner"></span> Saving...</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

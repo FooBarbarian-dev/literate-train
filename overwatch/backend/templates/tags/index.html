@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Tags - Overwatch{% end block %}
+
+{% block content %}
+<div class="page">
+    <div class="page-header">
+        <h1>Tags</h1>
+        <button
+            class="btn btn-primary"
+            hx-get="{% url 'tags:create-tag-modal' %}"
+            hx-target="#modal-container"
+            hx-swap="innerHTML">
+            + New Tag
+        </button>
+    </div>
+
+    <div class="filters-bar">
+        <input
+            type="search"
+            name="search"
+            placeholder="Search tags..."
+            class="filter-input filter-input-wide"
+            hx-get="{% url 'tags:tags-list-htmx' %}"
+            hx-trigger="input changed delay:300ms, search"
+            hx-target="#tags-list"
+            hx-indicator="#tags-loading"
+        />
+        <span class="filter-count" id="tags-count">
+            Loading...
+        </span>
+    </div>
+
+    <!-- Container for dynamic alerts -->
+    <div id="tags-alerts"></div>
+
+    <div id="tags-list"
+         hx-get="{% url 'tags:tags-list-htmx' %}"
+         hx-trigger="load, tagsUpdated from:body"
+         hx-indicator="#tags-loading">
+
+        <div class="loading-inline" id="tags-loading">
+            <div class="loading-spinner"></div>
+            <span>Loading tags...</span>
+        </div>
+
+    </div>
+</div>
+
+<div id="modal-container"></div>
+{% end block %}

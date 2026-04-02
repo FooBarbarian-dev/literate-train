@@ -18,6 +18,9 @@ router.register(r"tag-relationships", TagRelationshipViewSet, basename="tagrelat
 router.register(r"file-status", FileStatusViewSet, basename="filestatus")
 router.register(r"file-status-history", FileStatusHistoryViewSet, basename="filestatushistory")
 
+from relations.htmx_views import relations_page, relations_graph_htmx
+
 urlpatterns = [
-    path("", include(router.urls)),
-]
+    path("", relations_page, name="relations-page"),
+    path("htmx/graph/", relations_graph_htmx, name="relations-graph-htmx"),
+] + router.urls

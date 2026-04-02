@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - Overwatch{% end block %}
+
+{% block content %}
+<div class="page">
+    <div class="page-header">
+        <h1>Settings</h1>
+        <span class="settings-user-info">
+            Signed in as <strong>{{ request.user.username }}</strong>
+            {% if request.user.role == 'admin' %}
+                <span class="badge badge-admin">Admin</span>
+            {% endif %}
+        </span>
+    </div>
+
+    <div class="settings-grid">
+        <!-- Change Password Section -->
+        <div class="settings-section">
+            <h2>Change Password</h2>
+            <div id="password-form-container">
+                {% include "accounts/settings/partials/password_form.html" %}
+            </div>
+        </div>
+
+        <!-- API Keys Section -->
+        <div class="settings-section">
+            <h2>API Keys</h2>
+            <div id="api-key-container">
+                {% include "accounts/settings/partials/api_keys.html" %}
+            </div>
+        </div>
+
+        <!-- Sessions Section -->
+        <div class="settings-section">
+            <h2>Sessions</h2>
+            <p class="settings-description">
+                Manage your active sessions across all devices.
+            </p>
+            <div class="btn-group">
+                <button class="btn btn-danger"
+                        hx-post="{% url 'accounts:auth-logout-htmx' %}"
+                        hx-target="body">
+                    Logout
+                </button>
+                <button class="btn btn-danger"
+                        hx-post="{% url 'accounts:logout-all-htmx' %}"
+                        hx-confirm="Log out of all sessions?"
+                        hx-target="body"
+                        hx-indicator="#logout-all-spinner"
+                        hx-disabled-elt="this">
+                    <span id="logout-all-text">Logout All Sessions</span>
+                    <span id="logout-all-spinner" class="htmx-indicator"><span class="loading-spinner"></span></span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Theme Toggle Section -->
+        <div class="settings-section">
+            <h2>Appearance</h2>
+            <p class="settings-description">
+                Customize the visual theme of the application.
+            </p>
+            <div class="btn-group">
+                <button class="btn btn-outline" onclick="toggleTheme('light')">Light</button>
+                <button class="btn btn-outline" onclick="toggleTheme('dark')">Dark</button>
+                <button class="btn btn-outline" onclick="toggleTheme('colorblind')">Color-Blind (Okabe-Ito)</button>
+            </div>
+        </div>
+
+        <!-- Export / Import Section (UI placeholders for now) -->
+        <div class="settings-section">
+            <h2>Export / Import</h2>
+            <p class="settings-description">
+                Export log data for reporting or import from a previous export.
+            </p>
+            <div class="btn-group">
+                <a href="{% url 'export:export-json' %}" class="btn btn-primary" download>Export JSON</a>
+                <a href="{% url 'export:export-csv' %}" class="btn btn-primary" download>Export CSV</a>
+
+                <form id="import-form" hx-post="{% url 'ingest:import-csv' %}" hx-encoding="multipart/form-data" hx-target="#import-result" style="display:inline-block;">
+                    {% csrf_token %}
+                    <label class="btn btn-ghost file-input-label">
+                        Import File
+                        <input type="file" name="file" accept=".json,.csv" style="display: none;" onchange="document.getElementById('import-form').requestSubmit();" />
+                    </label>
+                </form>
+            </div>
+            <div id="import-result" style="margin-top: 10px;"></div>
+        </div>
+
+    </div>
+</div>
+{% end block %}

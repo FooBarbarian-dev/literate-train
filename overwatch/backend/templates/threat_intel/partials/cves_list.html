@@ -1,0 +1,25 @@
+<div class="ti-cve-list">
+    {% for cve in cves %}
+        <div class="ti-cve-card">
+            <div class="ti-cve-card-header">
+                <span class="ti-cve-id">{{ cve.cve_id }}</span>
+                <span class="ti-cve-cvss" style="background-color: {{ cve.cvss_color }};">{{ cve.cvss_score|default:"N/A" }}</span>
+                <button class="ti-ask-ai-btn"
+                        onclick="switchToAssistantAndAsk('Analyze {{ cve.cve_id }} — what software is affected, how is it exploited, and what are the recommended remediations?');">
+                    Ask AI
+                </button>
+            </div>
+            <div class="ti-cve-desc">{{ cve.description|truncatewords:40 }}</div>
+        </div>
+    {% empty %}
+        <div class="empty-state">No CVEs found.</div>
+    {% endfor %}
+</div>
+
+{% if page_obj.has_other_pages %}
+    <div class="pagination">
+        <button class="btn btn-sm btn-ghost" hx-get="?page={{ page_obj.previous_page_number }}" hx-include=".filters-bar" hx-target="#cves-list" {% if not page_obj.has_previous %}disabled{% endif %}>Prev</button>
+        <span class="pagination-info">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        <button class="btn btn-sm btn-ghost" hx-get="?page={{ page_obj.next_page_number }}" hx-include=".filters-bar" hx-target="#cves-list" {% if not page_obj.has_next %}disabled{% endif %}>Next</button>
+    </div>
+{% endif %}

@@ -1,0 +1,50 @@
+{% if tags %}
+    <div class="tags-grid">
+        {% for tag in tags %}
+            <div class="tag-card" title="{{ tag.description|default:'' }}">
+                <div class="tag-card-header">
+                    <span
+                        class="tag-dot"
+                        style="background-color: {{ tag.color|default:'#3b82f6' }}"
+                    ></span>
+                    <span class="tag-name">{{ tag.name }}</span>
+                </div>
+                {% if tag.description %}
+                    <p class="tag-description">{{ tag.description }}</p>
+                {% endif %}
+                <div class="tag-card-meta">
+                    {% if tag.log_count is not None %}
+                        <span class="tag-usage">
+                            Used in {{ tag.log_count }} log{{ tag.log_count|pluralize }}
+                        </span>
+                    {% elif tag.usage_count is not None %}
+                        <span class="tag-usage">
+                            Used {{ tag.usage_count }} time{{ tag.usage_count|pluralize }}
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <span id="tags-count" hx-swap-oob="true">
+        {{ tags|length }} tag{{ tags|length|pluralize }}
+    </span>
+{% else %}
+    <div class="empty-state">
+        <p>{% if search %}No tags match your search.{% else %}No tags found.{% endif %}</p>
+        {% if not search %}
+            <button
+                class="btn btn-primary"
+                hx-get="{% url 'tags:create-tag-modal' %}"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+                Create your first tag
+            </button>
+        {% endif %}
+    </div>
+
+    <span id="tags-count" hx-swap-oob="true">
+        0 tags
+    </span>
+{% endif %}
