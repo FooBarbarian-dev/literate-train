@@ -15,7 +15,7 @@ from logs.htmx_views import (
 app_name = "logs"
 
 router = DefaultRouter()
-router.register(r"api/logs", LogViewSet, basename="log-api")
+router.register(r"logs", LogViewSet, basename="logentry")
 
 urlpatterns = [
     path("", logs_page, name="logs-page"),

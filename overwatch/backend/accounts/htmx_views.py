@@ -9,7 +9,7 @@ from accounts.jwt_utils import issue_token, revoke_token
 
 def login_page(request):
     if hasattr(request.user, "is_authenticated") and request.user.is_authenticated:
-        return redirect('logs-page')  # Assuming this URL exists or will exist
+        return redirect('logs:logs-page')  # Assuming this URL exists or will exist
     form = LoginForm()
     return render(request, 'accounts/login.html', {'form': form})
 
@@ -72,7 +72,7 @@ def auth_logout_htmx(request):
         revoke_token(user.jti, user.username)
 
     response = HttpResponse()
-    response['HX-Redirect'] = '/login/'
+    response['HX-Redirect'] = '/accounts/login/'
     samesite = "Lax" if django_settings.DEBUG else "Strict"
     response.delete_cookie("auth_token", samesite=samesite)
     response.delete_cookie("token", samesite=samesite)

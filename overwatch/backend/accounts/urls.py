@@ -33,8 +33,8 @@ urlpatterns = [
     path("htmx/settings/logout-all/", logout_all_htmx, name="logout-all-htmx"),
 
     # API Routes
-    path("api/login/", login_view, name="auth-login-api"),
-    path("api/logout/", logout_view, name="auth-logout-api"),
+    path("login/", login_view, name="auth-login"),
+    path("logout/", logout_view, name="auth-logout"),
     path("change-password/", change_password_view, name="auth-change-password"),
     path("verify/", verify_view, name="auth-verify"),
     path("csrf-token/", csrf_token_view, name="csrf-token"),

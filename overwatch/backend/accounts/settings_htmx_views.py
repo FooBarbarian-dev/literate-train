@@ -58,7 +58,7 @@ def logout_all_htmx(request):
         revoke_all_tokens_for_user(user.username)
 
     response = HttpResponse()
-    response['HX-Redirect'] = '/login/'
+    response['HX-Redirect'] = '/accounts/login/'
     samesite = "Lax" if django_settings.DEBUG else "Strict"
     response.delete_cookie("auth_token", samesite=samesite)
     response.delete_cookie("token", samesite=samesite)

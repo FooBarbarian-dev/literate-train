@@ -12,7 +12,7 @@ from operations.htmx_views import (
 app_name = "operations"
 
 router = DefaultRouter()
-router.register(r"api/operations", OperationViewSet, basename="operation-api")
+router.register(r"operations", OperationViewSet, basename="operation")
 
 urlpatterns = [
     # HTMX UI Routes

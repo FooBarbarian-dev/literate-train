@@ -11,7 +11,7 @@ from tags.htmx_views import (
 app_name = "tags"
 
 router = DefaultRouter()
-router.register(r"api/tags", TagViewSet, basename="tag-api")
+router.register(r"tags", TagViewSet, basename="tag")
 
 urlpatterns = [
     path("", tags_page, name="tags-page"),

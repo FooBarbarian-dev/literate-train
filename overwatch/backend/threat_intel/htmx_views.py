@@ -2,7 +2,8 @@ from django.shortcuts import render, get_object_or_404
 from django.views.decorators.http import require_http_methods
 from django.core.paginator import Paginator
 from django.http import HttpResponse
-from threat_intel.models import MitreTechnique, Cve, ChatSession, ChatMessage
+from threat_intel.models import MitreTechnique, NvdCve, ChatSession
+from django_ai_assistant.models import Message as ChatMessage
 from accounts.htmx_auth import htmx_login_required
 
 @require_http_methods(["GET"])
@@ -45,7 +46,7 @@ def mitre_list_htmx(request):
 @require_http_methods(["GET"])
 @htmx_login_required
 def cves_list_htmx(request):
-    qs = Cve.objects.all().order_by('-published_date')
+    qs = NvdCve.objects.all().order_by('-published_date')
     search = request.GET.get('search')
     if search:
         qs = qs.filter(cve_id__icontains=search) | qs.filter(description__icontains=search)
@@ -228,21 +229,16 @@ def chat_poll_task(request, session_id, task_id):
         html = f'<div class="alert alert-error chat-alert" style="margin-top: 1rem;">{error_msg}</div>'
         return HttpResponse(html)
 
+    from django.utils.html import escape
+
     reply = result.get("reply", "")
-    # Note: HTMX allows us to trigger an event (e.g. reload RAG Panel) when swapping this in
-    response = render(request, 'threat_intel/partials/chat_messages.html', {
-        'session': session,
-        'messages': [{"role": "assistant", "content": reply}],
-    })
+    safe_reply = escape(reply)
 
     # We want to JUST return the bubble, not the whole container list.
-    # The simplest way is to manually format the bubble or have a dedicated bubble template.
-    # Since chat_messages loops over messages, we can just return it, BUT wait, chat_messages
-    # has a container div class="chat-messages". Let's just return the raw HTML bubble to avoid nested containers:
     html = f"""
     <div class="chat-bubble chat-bubble-assistant">
         <div class="chat-bubble-label">Assistant</div>
-        <div class="chat-bubble-content" style="white-space: pre-wrap; font-family: var(--font-mono);">{reply}</div>
+        <div class="chat-bubble-content" style="white-space: pre-wrap; font-family: var(--font-mono);">{safe_reply}</div>
     </div>
     """
 

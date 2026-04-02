@@ -15,9 +15,9 @@ def htmx_login_required(view_func):
         if not token:
             if request.headers.get('HX-Request'):
                 response = HttpResponse()
-                response['HX-Redirect'] = '/login/'
+                response['HX-Redirect'] = '/accounts/login/'
                 return response
-            return HttpResponseRedirect('/login/')
+            return HttpResponseRedirect('/accounts/login/')
 
         try:
             payload = verify_token(token)
@@ -26,9 +26,9 @@ def htmx_login_required(view_func):
         except Exception:
             if request.headers.get('HX-Request'):
                 response = HttpResponse()
-                response['HX-Redirect'] = '/login/'
+                response['HX-Redirect'] = '/accounts/login/'
                 return response
-            return HttpResponseRedirect('/login/')
+            return HttpResponseRedirect('/accounts/login/')
 
         return view_func(request, *args, **kwargs)
     return _wrapped_view
