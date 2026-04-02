@@ -22,8 +22,14 @@ def htmx_login_required(view_func):
         try:
             payload = verify_token(token)
             # Create a mock user object to satisfy the views
-            request.user = JWTUser(payload)
-        except Exception:
+            # payload contains: username, role, admin_proof, jti
+            request.user = JWTUser(
+                username=payload["username"],
+                role=payload["role"],
+                admin_proof=payload["admin_proof"],
+                jti=payload["jti"]
+            )
+        except Exception as e:
             if request.headers.get('HX-Request'):
                 response = HttpResponse()
                 response['HX-Redirect'] = '/accounts/login/'
