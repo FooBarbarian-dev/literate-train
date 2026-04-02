@@ -1,19 +1,27 @@
 from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
-from api_keys.services import generate_api_key, revoke_all_keys
 from accounts.htmx_auth import htmx_login_required
+from api_keys.models import ApiKey
+import hashlib
+import secrets
 
 @require_http_methods(["POST"])
 @htmx_login_required
 def generate_key_htmx(request):
     try:
-        api_key, raw_token = generate_api_key(
+        raw_key = secrets.token_urlsafe(48)
+        key_id = secrets.token_urlsafe(16)
+        key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
+
+        ApiKey.objects.create(
             name="Generated Key",
+            key_id=key_id,
+            key_hash=key_hash,
             created_by=request.user.username,
-            expires_at=None
+            permissions=["logs:write"]
         )
         return render(request, 'accounts/settings/partials/api_keys.html', {
-            'api_key': raw_token
+            'api_key': raw_key
         })
     except Exception as e:
         return render(request, 'accounts/settings/partials/api_keys.html', {
@@ -24,7 +32,7 @@ def generate_key_htmx(request):
 @htmx_login_required
 def revoke_keys_htmx(request):
     try:
-        count = revoke_all_keys(request.user.username)
+        ApiKey.objects.filter(created_by=request.user.username, is_active=True).update(is_active=False)
         return render(request, 'accounts/settings/partials/api_keys.html', {})
     except Exception as e:
         return render(request, 'accounts/settings/partials/api_keys.html', {
