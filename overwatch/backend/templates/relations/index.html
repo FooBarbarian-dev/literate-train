@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Relationships - Overwatch{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header">
+        <h1>Relationships</h1>
+        <button
+            class="btn btn-sm btn-ghost"
+            hx-get="{% url 'relations:relations-graph-htmx' %}"
+            hx-include="[name='relationship_type']"
+            hx-target="#relations-content"
+            hx-indicator="#relations-loading">
+            &#8635; Refresh
+        </button>
+    </div>
+
+    <!-- Hidden input to store active type -->
+    <input type="hidden" id="active-relation-type" name="relationship_type" value="host">
+
+    <div class="rel-tabs">
+        <button
+            class="rel-tab rel-tab-active"
+            onclick="document.getElementById('active-relation-type').value='host'; htmx.trigger(this, 'changeTab')"
+            hx-get="{% url 'relations:relations-graph-htmx' %}?relationship_type=host"
+            hx-target="#relations-content"
+            hx-indicator="#relations-loading"
+            hx-trigger="changeTab">
+            Host
+        </button>
+        <button
+            class="rel-tab"
+            onclick="document.getElementById('active-relation-type').value='ip'; htmx.trigger(this, 'changeTab')"
+            hx-get="{% url 'relations:relations-graph-htmx' %}?relationship_type=ip"
+            hx-target="#relations-content"
+            hx-indicator="#relations-loading"
+            hx-trigger="changeTab">
+            IP
+        </button>
+        <button
+            class="rel-tab"
+            onclick="document.getElementById('active-relation-type').value='domain'; htmx.trigger(this, 'changeTab')"
+            hx-get="{% url 'relations:relations-graph-htmx' %}?relationship_type=domain"
+            hx-target="#relations-content"
+            hx-indicator="#relations-loading"
+            hx-trigger="changeTab">
+            Domain
+        </button>
+        <button
+            class="rel-tab"
+            onclick="document.getElementById('active-relation-type').value='user_command'; htmx.trigger(this, 'changeTab')"
+            hx-get="{% url 'relations:relations-graph-htmx' %}?relationship_type=user_command"
+            hx-target="#relations-content"
+            hx-indicator="#relations-loading"
+            hx-trigger="changeTab">
+            User Commands
+        </button>
+    </div>
+
+    <script>
+        // Simple script to toggle active tab visual
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('rel-tab')) {
+                document.querySelectorAll('.rel-tab').forEach(t => t.classList.remove('rel-tab-active'));
+                e.target.classList.add('rel-tab-active');
+            }
+        });
+    </script>
+
+    <div id="relations-loading" class="htmx-indicator rel-loading">Loading relations...</div>
+
+    <div id="relations-content"
+         hx-get="{% url 'relations:relations-graph-htmx' %}?relationship_type=host"
+         hx-trigger="load">
+    </div>
+</div>
+{% endblock %}

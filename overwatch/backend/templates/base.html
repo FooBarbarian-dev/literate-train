@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Overwatch{% endblock %}</title>
+
+    <!-- HTMX -->
+    <meta name="htmx-config" content='{"withCredentials":true}'>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+
+    <!-- Theme Script (Blocking to prevent FOUC) -->
+    <script>
+        (function() {
+            var theme = localStorage.getItem('theme');
+            if (theme) {
+                document.documentElement.setAttribute('data-theme', theme);
+            } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
+
+    <!-- Using the CSS from the React app directly for now, we'll bundle or move it later -->
+    <link rel="stylesheet" href="/static/App.css">
+
+    <style>
+        /* Additional HTMX indicator styles */
+        .htmx-indicator {
+            opacity: 0;
+            transition: opacity 200ms ease-in;
+        }
+        .htmx-request .htmx-indicator {
+            opacity: 1;
+        }
+        .htmx-request.htmx-indicator {
+            opacity: 1;
+        }
+    </style>
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+    {% if request.user.is_authenticated %}
+        {% include "partials/navbar.html" %}
+        <div class="main-content">
+            {% block content %}{% endblock %}
+        </div>
+    {% else %}
+        {% block unauth_content %}{% endblock %}
+    {% endif %}
+
+    <script>
+        // Theme Toggle Function
+        function toggleTheme(newTheme) {
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+        }
+    </script>
+
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,82 @@
+<div class="modal-overlay" onclick="document.getElementById('modal-container').innerHTML = ''">
+    <div class="modal modal-sm" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h2>New Tag</h2>
+            <button class="btn btn-ghost" onclick="document.getElementById('modal-container').innerHTML = ''">
+                &#10005;
+            </button>
+        </div>
+
+        <form
+            hx-post="{% url 'tags:create-tag-htmx' %}"
+            hx-target="this"
+            hx-swap="outerHTML"
+            class="modal-body">
+
+            {% csrf_token %}
+
+            {% if error %}
+                <div class="alert alert-error">{{ error }}</div>
+            {% endif %}
+
+            <div class="form-group">
+                <label>Tag Name</label>
+                <input
+                    name="name"
+                    value="{{ form.name.value|default:'' }}"
+                    placeholder="e.g., privilege-escalation"
+                    required
+                    autofocus
+                />
+                {% if form.name.errors %}
+                    <div class="text-error text-sm">{{ form.name.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label>Description</label>
+                <input
+                    name="description"
+                    value="{{ form.description.value|default:'' }}"
+                    placeholder="Tag description..."
+                />
+                {% if form.description.errors %}
+                    <div class="text-error text-sm">{{ form.description.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label>Color</label>
+                <div class="color-input-row">
+                    <!-- Note: Syncing the visual picker and text input usually needs a tiny bit of JS,
+                         but we can rely on standard HTML5 for the color picker as the primary input -->
+                    <input
+                        type="color"
+                        name="color"
+                        value="{{ form.color.value|default:'#3b82f6' }}"
+                        class="color-picker"
+                    />
+                </div>
+                {% if form.color.errors %}
+                    <div class="text-error text-sm">{{ form.color.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-ghost" onclick="document.getElementById('modal-container').innerHTML = ''">
+                    Cancel
+                </button>
+                <button
+                    type="submit"
+                    class="btn btn-primary"
+                    hx-indicator="#saving-spinner"
+                    hx-disabled-elt="this">
+                    <span id="saving-text">Create Tag</span>
+                    <span id="saving-spinner" class="htmx-indicator">
+                        <span class="loading-spinner"></span> Creating...
+                    </span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

@@ -1,0 +1,70 @@
+{% if status %}
+<div class="ti-rag-panel">
+    <div class="ti-rag-title">
+        <span>RAG Context</span>
+        {% if not status.llm_online %}
+            <span class="ti-llm-offline">LLM Offline</span>
+        {% endif %}
+    </div>
+
+    <!-- MITRE ATT&CK Card -->
+    <div class="ti-rag-card">
+        <div class="ti-rag-card-header">
+            <span class="ti-rag-dot {% if status.mitre.sync_status == 'ok' %}ti-rag-dot-green{% else %}ti-rag-dot-red{% endif %}"></span>
+            <span class="ti-rag-card-title">MITRE ATT&amp;CK</span>
+            <span class="ti-rag-count">{{ status.mitre.count }}</span>
+        </div>
+        <div class="ti-rag-meta">Last sync: {{ status.mitre.last_sync|date:"Y-m-d H:i"|default:"Never" }}</div>
+
+        {% if session_sources.mitre %}
+            <div class="ti-rag-session-row">
+                <span class="ti-rag-session-label">Used in session:</span>
+                <span class="ti-rag-session-count">{{ session_sources.mitre.count }}</span>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- NVD CVEs Card -->
+    <div class="ti-rag-card">
+        <div class="ti-rag-card-header">
+            <span class="ti-rag-dot {% if status.nvd.sync_status == 'ok' %}ti-rag-dot-green{% else %}ti-rag-dot-red{% endif %}"></span>
+            <span class="ti-rag-card-title">NVD CVEs</span>
+            <span class="ti-rag-count">{{ status.nvd.count }}</span>
+        </div>
+        <div class="ti-rag-meta">Last sync: {{ status.nvd.last_sync|date:"Y-m-d H:i"|default:"Never" }}</div>
+
+        {% if session_sources.nvd %}
+            <div class="ti-rag-session-row">
+                <span class="ti-rag-session-label">Used in session:</span>
+                <span class="ti-rag-session-count">{{ session_sources.nvd.count }}</span>
+            </div>
+        {% endif %}
+
+        {% if status.nvd.severity_distribution %}
+            <div class="ti-rag-cvss-bar">
+                {% for level, percentage in status.nvd.severity_distribution.items %}
+                    <div class="ti-rag-cvss-seg ti-cvss-{{ level }}" style="width: {{ percentage }}%" title="{{ level|title }}: {{ percentage|floatformat:1 }}%"></div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Operations Data Card -->
+    <div class="ti-rag-card">
+        <div class="ti-rag-card-header">
+            <span class="ti-rag-dot ti-rag-dot-green"></span>
+            <span class="ti-rag-card-title">Operations Data</span>
+            <span class="ti-rag-count">{{ status.operations.total_count }}</span>
+        </div>
+        <div class="ti-rag-meta">Live database connection</div>
+        <div class="ti-rag-db-list">
+            {% for name, count in status.operations.models.items %}
+                <div class="ti-rag-db-row">
+                    <span class="ti-rag-db-name">{{ name }}</span>
+                    <span class="ti-rag-db-count">{{ count }}</span>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}

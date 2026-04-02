@@ -1,0 +1,60 @@
+<div class="rel-summary">
+    {{ edges|length }} relation{{ edges|length|pluralize }} found | {{ nodes|length }} node{{ nodes|length|pluralize }}
+</div>
+
+{% if nodes %}
+    <div class="rel-tree">
+        {% for node in sorted_nodes %}
+            <div class="rel-tree-node">
+                <!-- Using HTMX to toggle children might be overkill if we just want simple CSS toggles,
+                     but we can use details/summary for zero-JS toggle natively, or simple vanilla JS -->
+                <details>
+                    <summary class="rel-tree-row" style="list-style: none;">
+                        <span class="rel-tree-arrow toggle-icon">&#x25B6;</span>
+                        <span class="rel-tree-value">{{ node.value }}</span>
+                        <span class="rel-tree-count">
+                            ({{ node.edge_count }} link{{ node.edge_count|pluralize }})
+                        </span>
+                    </summary>
+
+                    {% if node.edges %}
+                        <div class="rel-tree-children">
+                            {% for edge in node.edges %}
+                                <div class="rel-tree-edge">
+                                    <span class="rel-tree-branch">
+                                        {% if forloop.last %}&#x2514;&#x2500;{% else %}&#x251C;&#x2500;{% endif %}
+                                    </span>
+                                    <span class="rel-tree-peer">{{ edge.peer_display }}</span>
+                                    <span class="rel-tree-strength">strength:{{ edge.strength }}</span>
+                                    {% if edge.operation_tags %}
+                                        <span class="rel-tree-tags">
+                                            {% for tag in edge.operation_tags %}
+                                                <span class="rel-tree-tag">[{{ tag }}]</span>
+                                            {% endfor %}
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </details>
+            </div>
+        {% endfor %}
+    </div>
+
+    <style>
+        /* Hide default details marker */
+        details > summary::-webkit-details-marker {
+            display: none;
+        }
+        details[open] > summary .toggle-icon {
+            transform: rotate(90deg);
+            display: inline-block;
+        }
+        .toggle-icon {
+            transition: transform 0.1s;
+        }
+    </style>
+{% else %}
+    <div class="rel-empty">No relations found for this type.</div>
+{% endif %}

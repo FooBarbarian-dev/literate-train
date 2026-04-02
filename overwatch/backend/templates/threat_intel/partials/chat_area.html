@@ -1,0 +1,31 @@
+<div class="ti-chat-area-header">
+    <span class="ti-chat-session-label">{{ session.name|default:"New conversation" }}</span>
+</div>
+
+<div class="ti-chat-body" id="chat-body-scroll">
+    <div id="chat-messages-target" hx-get="{% url 'threat_intel:chat-session-messages-htmx' session.id %}" hx-trigger="load">
+        <!-- Messages loaded here -->
+    </div>
+</div>
+
+<div class="chat-input-bar">
+    <form hx-post="{% url 'threat_intel:chat-send-message' session.id %}"
+          hx-target="#chat-messages-container"
+          hx-swap="beforeend"
+          hx-disabled-elt="#chat-submit-btn, .chat-input"
+          hx-indicator="#chat-submit-btn"
+          style="display: flex; flex: 1; gap: 8px;">
+        {% csrf_token %}
+        <textarea
+            name="message"
+            class="chat-input"
+            placeholder="Ask about CVEs, ATT&CK techniques, or your operation logs… (Enter to send)"
+            rows="1"
+            required
+            onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); this.form.dispatchEvent(new Event('submit', {cancelable: true, bubbles: true})); }"
+        ></textarea>
+        <button type="submit" class="btn btn-primary" id="chat-submit-btn">
+            Send
+        </button>
+    </form>
+</div>

@@ -1,0 +1,11 @@
+<div class="ti-session-list">
+    {% for session in sessions %}
+        <div class="ti-session-item {% if session.id == active_session_id %}ti-session-item-active{% endif %}"
+             hx-get="{% url 'threat_intel:chat-session-load' session.id %}"
+             hx-target="#chat-area">
+            <span class="ti-session-item-name">{{ session.name|default:"New conversation" }}</span>
+        </div>
+    {% empty %}
+        <p class="ti-session-empty">No sessions yet.</p>
+    {% endfor %}
+</div>

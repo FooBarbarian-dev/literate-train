@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Logs - Overwatch{% endblock %}
+
+{% block content %}
+<div class="page logs-page {% if show_panel %}panel-open{% endif %}">
+    <div class="page-header">
+        <div class="logs-view-tabs">
+            <button class="btn btn-primary btn-sm">Card View</button>
+            <button class="btn btn-ghost btn-sm"
+                    hx-get="{% url 'logs:card-fields-modal' %}"
+                    hx-target="#modal-container"
+                    hx-swap="innerHTML">
+                Card Fields
+            </button>
+        </div>
+        <button class="btn btn-primary"
+                hx-get="{% url 'logs:log-panel' %}"
+                hx-target="#panel-container"
+                hx-swap="innerHTML">
+            + Add Row
+        </button>
+    </div>
+
+    {% if active_operation %}
+        <div class="operation-banner">
+            <span class="operation-banner-label">Operation:</span>
+            <strong>{{ active_operation.operation_name }}</strong>
+            {% if active_operation.tag_name %}
+                <span class="tag" style="background-color: {{ active_operation.tag_color|default:'#3B82F6' }}22; color: {{ active_operation.tag_color|default:'#3B82F6' }}; border-color: {{ active_operation.tag_color|default:'#3B82F6' }}55; margin-left: 0.5rem;">
+                    {{ active_operation.tag_name }}
+                </span>
+            {% endif %}
+        </div>
+    {% else %}
+        <div class="operation-banner operation-banner-warn">
+            No active operation set &mdash; showing all logs.
+            <a href="{% url 'operations:operations-page' %}" style="margin-left: 0.5rem;">Select one</a>
+        </div>
+    {% endif %}
+
+    <div class="filters-bar" hx-get="{% url 'logs:logs-list-htmx' %}" hx-trigger="input from:input delay:300ms, change from:select" hx-target="#logs-content" hx-indicator="#logs-loading">
+        <input name="hostname" placeholder="Filter by hostname..." class="filter-input" value="{{ filters.hostname|default:'' }}" />
+        <input name="ip_address" placeholder="Filter by IP..." class="filter-input" value="{{ filters.ip_address|default:'' }}" />
+        <select name="status" class="filter-input">
+            <option value="">All statuses</option>
+            <option value="success" {% if filters.status == 'success' %}selected{% endif %}>Success</option>
+            <option value="failure" {% if filters.status == 'failure' %}selected{% endif %}>Failure</option>
+            <option value="in_progress" {% if filters.status == 'in_progress' %}selected{% endif %}>In Progress</option>
+            <option value="blocked" {% if filters.status == 'blocked' %}selected{% endif %}>Blocked</option>
+        </select>
+        <!-- Tag autocomplete could be added here similar to the React version. For simplicity now, let's omit or use a text input -->
+        <input name="tag" placeholder="Filter by tag name..." class="filter-input" value="{{ filters.tag|default:'' }}" />
+    </div>
+
+    <div id="logs-alerts"></div>
+
+    <div id="logs-loading" class="htmx-indicator loading-inline">
+        <div class="loading-spinner"></div>
+        <span>Loading logs...</span>
+    </div>
+
+    <div id="logs-content"
+         hx-get="{% url 'logs:logs-list-htmx' %}"
+         hx-trigger="load, logsUpdated from:body">
+    </div>
+
+    <div id="panel-container"></div>
+    <div id="modal-container"></div>
+</div>
+
+<script>
+    // Apply card fields configuration on load and update
+    function applyCardFields() {
+        try {
+            const stored = localStorage.getItem('overwatch-card-fields');
+            if (stored) {
+                const config = JSON.parse(stored);
+                // Hide all fields initially
+                document.querySelectorAll('.log-field-group[class*="field-"]').forEach(el => {
+                    el.style.display = 'none';
+                });
+                // Show only selected
+                config.forEach(field => {
+                    document.querySelectorAll('.field-' + field).forEach(el => {
+                        el.style.display = 'flex';
+                    });
+                });
+            }
+        } catch(e) {}
+    }
+
+    document.addEventListener("DOMContentLoaded", applyCardFields);
+    document.body.addEventListener("htmx:afterSwap", applyCardFields);
+</script>
+{% endblock %}

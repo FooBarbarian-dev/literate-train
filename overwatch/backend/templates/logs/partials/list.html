@@ -1,0 +1,38 @@
+{% if logs %}
+    <div class="log-cards-list">
+        {% for log in logs %}
+            {% include "logs/partials/log_card.html" %}
+        {% endfor %}
+    </div>
+
+    {% if page_obj.paginator.num_pages > 1 %}
+        <div class="pagination">
+            <button class="btn btn-sm btn-ghost"
+                    hx-get="{% url 'logs:logs-list-htmx' %}?page={{ page_obj.previous_page_number }}"
+                    hx-include=".filters-bar"
+                    hx-target="#logs-content"
+                    {% if not page_obj.has_previous %}disabled{% endif %}>
+                Previous
+            </button>
+            <span class="pagination-info">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+            <button class="btn btn-sm btn-ghost"
+                    hx-get="{% url 'logs:logs-list-htmx' %}?page={{ page_obj.next_page_number }}"
+                    hx-include=".filters-bar"
+                    hx-target="#logs-content"
+                    {% if not page_obj.has_next %}disabled{% endif %}>
+                Next
+            </button>
+        </div>
+    {% endif %}
+
+{% else %}
+    <div class="empty-state">
+        <p>No log entries found.</p>
+        <button class="btn btn-primary"
+                hx-get="{% url 'logs:log-panel' %}"
+                hx-target="#panel-container"
+                hx-swap="innerHTML">
+            Create your first log
+        </button>
+    </div>
+{% endif %}

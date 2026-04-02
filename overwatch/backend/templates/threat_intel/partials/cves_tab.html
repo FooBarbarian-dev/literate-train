@@ -1,0 +1,17 @@
+<!-- Similar structure to MitreTab for brevity -->
+<div class="ti-cves-tab">
+    <div class="filters-bar" hx-get="{% url 'threat_intel:cves-list-htmx' %}" hx-trigger="input from:input delay:300ms, change from:select" hx-target="#cves-list">
+        <input type="text" name="search" placeholder="Search CVEs..." class="filter-input filter-input-wide" />
+        <select name="severity" class="filter-input">
+            <option value="">All Severities</option>
+            <option value="critical">Critical (9.0+)</option>
+            <option value="high">High (7.0-8.9)</option>
+            <option value="medium">Medium (4.0-6.9)</option>
+            <option value="low">Low (0.1-3.9)</option>
+        </select>
+    </div>
+
+    <div id="cves-list" hx-get="{% url 'threat_intel:cves-list-htmx' %}" hx-trigger="load">
+        <div class="loading-inline"><div class="loading-spinner"></div> Loading CVEs...</div>
+    </div>
+</div>

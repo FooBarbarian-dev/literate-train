@@ -1,0 +1,10 @@
+<div class="chat-bubble chat-bubble-assistant"
+     id="chat-polling-indicator"
+     hx-get="{% url 'threat_intel:chat-poll-task' session.id task_id %}"
+     hx-trigger="every 1s"
+     hx-swap="outerHTML">
+    <div class="chat-bubble-label">Assistant</div>
+    <div class="chat-thinking">
+        <span></span><span></span><span></span>
+    </div>
+</div>

@@ -1,0 +1,60 @@
+{% if operations %}
+    <div class="cards-grid">
+        {% for op in operations %}
+            <div class="card {% if op.is_user_active %}card-active{% endif %}">
+                <div class="card-header">
+                    <h3>{{ op.name }}</h3>
+                    {% if op.is_user_active %}
+                        <span class="badge badge-active">Active</span>
+                    {% endif %}
+                </div>
+                <p class="card-description">
+                    {{ op.description|default:'No description' }}
+                </p>
+                <div class="card-meta">
+                    <span>
+                        Created: {{ op.created_at|date:"n/j/Y" }}
+                    </span>
+                    {% if op.users %}
+                        <span>
+                            {{ op.users|length }} user{{ op.users|length|pluralize }}
+                        </span>
+                    {% endif %}
+                </div>
+                {% if op.users %}
+                    <div class="card-users">
+                        {% for u in op.users %}
+                            <span class="badge badge-user">
+                                {{ u.username|default:u }}
+                            </span>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                <div class="card-actions">
+                    {% if not op.is_user_active %}
+                        <button
+                            class="btn btn-sm btn-primary"
+                            hx-post="{% url 'operations:set-active-htmx' op.id %}"
+                            hx-target="body"
+                            hx-disabled-elt="this">
+                            Set Active
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="empty-state">
+        <p>No operations found.</p>
+        {% if request.user.role == 'admin' %}
+            <button
+                class="btn btn-primary"
+                hx-get="{% url 'operations:create-operation-modal' %}"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+                Create your first operation
+            </button>
+        {% endif %}
+    </div>
+{% endif %}

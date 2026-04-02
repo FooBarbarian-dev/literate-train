@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Threat Intelligence - Overwatch{% endblock %}
+
+{% block content %}
+<div class="ti-page">
+    <div class="ti-page-header">
+        <h1>Threat Intelligence</h1>
+        <p class="ti-page-sub">Browse MITRE ATT&amp;CK techniques and NVD CVEs, or query the AI assistant</p>
+    </div>
+
+    <div class="ti-tabs" role="tablist">
+        <button role="tab" class="ti-tab {% if active_tab == 'mitre' %}ti-tab-active{% endif %}"
+                hx-get="{% url 'threat_intel:mitre-tab' %}"
+                hx-target="#ti-tab-panel">
+            MITRE ATT&amp;CK
+        </button>
+        <button role="tab" class="ti-tab {% if active_tab == 'cves' %}ti-tab-active{% endif %}"
+                hx-get="{% url 'threat_intel:cves-tab' %}"
+                hx-target="#ti-tab-panel">
+            CVEs
+        </button>
+        <button role="tab" class="ti-tab {% if active_tab == 'assistant' %}ti-tab-active{% endif %}"
+                hx-get="{% url 'threat_intel:assistant-tab' %}"
+                hx-target="#ti-tab-panel">
+            AI Assistant
+        </button>
+    </div>
+
+    <!-- Need to track the active tab selection locally via JS as HTMX swaps content -->
+    <script>
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('ti-tab')) {
+                document.querySelectorAll('.ti-tab').forEach(t => t.classList.remove('ti-tab-active'));
+                e.target.classList.add('ti-tab-active');
+            }
+        });
+    </script>
+
+    <div id="ti-tab-panel" class="ti-tab-panel">
+        {% if active_tab == 'mitre' %}
+            {% include "threat_intel/partials/mitre_tab.html" %}
+        {% elif active_tab == 'cves' %}
+            {% include "threat_intel/partials/cves_tab.html" %}
+        {% elif active_tab == 'assistant' %}
+            {% include "threat_intel/partials/assistant_tab.html" %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
