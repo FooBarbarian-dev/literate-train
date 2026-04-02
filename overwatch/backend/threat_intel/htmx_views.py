@@ -163,7 +163,9 @@ def chat_send_message(request, session_id):
     message = request.POST.get("message", "").strip()
 
     if not message:
-        return HttpResponse("Message cannot be empty", status=400)
+        error_msg = "Message cannot be empty"
+        html = f'<div class="alert alert-error chat-alert" style="margin-top: 1rem;">{error_msg}</div>'
+        return HttpResponse(html, status=200)
 
     if not session.name or session.name == "New conversation":
         session.name = (message[:57] + "…") if len(message) > 57 else message

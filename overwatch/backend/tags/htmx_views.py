@@ -43,7 +43,7 @@ def create_tag_modal(request):
 def create_tag_htmx(request):
     form = TagForm(request.POST)
     if not form.is_valid():
-        return render(request, 'tags/partials/create_modal.html', {'form': form}, status=400)
+        return render(request, 'tags/partials/create_modal.html', {'form': form}, status=200)
 
     try:
         tag = form.save(commit=False)
@@ -57,4 +57,4 @@ def create_tag_htmx(request):
         return render(request, 'tags/partials/create_modal.html', {
             'form': form,
             'error': str(e)
-        }, status=400)
+        }, status=200)

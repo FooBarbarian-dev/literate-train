@@ -36,6 +36,7 @@
         <button
             hx-post="{% url 'accounts:auth-logout-htmx' %}"
             hx-target="body"
+            hx-disabled-elt="this"
             class="btn btn-sm btn-ghost">
             Logout
         </button>

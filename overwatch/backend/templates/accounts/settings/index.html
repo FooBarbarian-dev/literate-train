@@ -40,7 +40,8 @@
             <div class="btn-group">
                 <button class="btn btn-danger"
                         hx-post="{% url 'accounts:auth-logout-htmx' %}"
-                        hx-target="body">
+                        hx-target="body"
+                        hx-disabled-elt="this">
                     Logout
                 </button>
                 <button class="btn btn-danger"
@@ -80,11 +81,28 @@
 
                 <form id="import-form" hx-post="{% url 'ingest:import-csv' %}" hx-encoding="multipart/form-data" hx-target="#import-result" style="display:inline-block;">
                     {% csrf_token %}
-                    <label class="btn btn-ghost file-input-label">
+                    <label class="btn btn-ghost file-input-label" id="import-label">
                         Import File
                         <input type="file" name="file" accept=".json,.csv" style="display: none;" onchange="document.getElementById('import-form').requestSubmit();" />
                     </label>
+                    <span class="htmx-indicator" id="import-spinner"><span class="loading-spinner"></span> Importing...</span>
                 </form>
+                <script>
+                    document.body.addEventListener('htmx:beforeRequest', function(evt) {
+                        if (evt.detail.elt.id === 'import-form') {
+                            document.getElementById('import-label').style.pointerEvents = 'none';
+                            document.getElementById('import-label').style.opacity = '0.5';
+                            document.getElementById('import-spinner').style.opacity = '1';
+                        }
+                    });
+                    document.body.addEventListener('htmx:afterRequest', function(evt) {
+                        if (evt.detail.elt.id === 'import-form') {
+                            document.getElementById('import-label').style.pointerEvents = 'auto';
+                            document.getElementById('import-label').style.opacity = '1';
+                            document.getElementById('import-spinner').style.opacity = '0';
+                        }
+                    });
+                </script>
             </div>
             <div id="import-result" style="margin-top: 10px;"></div>
         </div>

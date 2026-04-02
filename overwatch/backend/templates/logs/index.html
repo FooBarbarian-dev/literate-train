@@ -68,4 +68,29 @@
     <div id="panel-container"></div>
     <div id="modal-container"></div>
 </div>
+
+<script>
+    // Apply card fields configuration on load and update
+    function applyCardFields() {
+        try {
+            const stored = localStorage.getItem('overwatch-card-fields');
+            if (stored) {
+                const config = JSON.parse(stored);
+                // Hide all fields initially
+                document.querySelectorAll('.log-field-group[class*="field-"]').forEach(el => {
+                    el.style.display = 'none';
+                });
+                // Show only selected
+                config.forEach(field => {
+                    document.querySelectorAll('.field-' + field).forEach(el => {
+                        el.style.display = 'flex';
+                    });
+                });
+            }
+        } catch(e) {}
+    }
+
+    document.addEventListener("DOMContentLoaded", applyCardFields);
+    document.body.addEventListener("htmx:afterSwap", applyCardFields);
+</script>
 {% end block %}

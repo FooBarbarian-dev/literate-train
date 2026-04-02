@@ -89,7 +89,7 @@ def log_save_htmx(request):
 
     form = LogForm(request.POST, instance=log)
     if not form.is_valid():
-        return render(request, 'logs/partials/panel.html', {'form': form, 'log': log}, status=400)
+        return render(request, 'logs/partials/panel.html', {'form': form, 'log': log}, status=200)
 
     try:
         log_entry = form.save(commit=False)
@@ -105,7 +105,7 @@ def log_save_htmx(request):
             'form': form,
             'log': log,
             'error': str(e)
-        }, status=400)
+        }, status=200)
 
 @require_http_methods(["DELETE"])
 @htmx_login_required
@@ -119,12 +119,10 @@ def log_delete_htmx(request, log_id):
 @require_http_methods(["GET"])
 @htmx_login_required
 def log_toggle(request, log_id):
-    # This just returns the log card but expanded
     log = get_object_or_404(LogEntry, id=log_id)
-    # Note: State usually kept in client or session, but for HTMX we'll pass 'expanded=True' to the template
-    # Here we simulate toggling by re-rendering a partial just for this log card.
-    log.expanded = True
-    return render(request, 'logs/partials/list.html', {'logs': [log]}) # Actually we need a specific partial for a single card
+    expanded_str = request.GET.get('expanded', 'false').lower()
+    log.expanded = expanded_str == 'true'
+    return render(request, 'logs/partials/log_card.html', {'log': log})
 
 @require_http_methods(["GET"])
 @htmx_login_required

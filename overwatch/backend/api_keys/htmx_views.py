@@ -18,7 +18,7 @@ def generate_key_htmx(request):
     except Exception as e:
         return render(request, 'accounts/settings/partials/api_keys.html', {
             'error': str(e)
-        }, status=400)
+        }, status=200)
 
 @require_http_methods(["POST"])
 @htmx_login_required
@@ -29,4 +29,4 @@ def revoke_keys_htmx(request):
     except Exception as e:
         return render(request, 'accounts/settings/partials/api_keys.html', {
             'error': str(e)
-        }, status=400)
+        }, status=200)

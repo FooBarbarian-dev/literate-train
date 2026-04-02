@@ -1,0 +1,100 @@
+<div class="log-card" id="log-card-{{ log.id }}">
+    <div class="log-card-header"
+         hx-get="{% url 'logs:log-toggle' log.id %}?expanded={% if log.expanded %}false{% else %}true{% endif %}"
+         hx-target="#log-card-{{ log.id }}"
+         hx-swap="outerHTML">
+
+         <span class="log-card-toggle">{% if log.expanded %}&#x25BC;{% else %}&#x25B6;{% endif %}</span>
+         <span class="log-card-title">{{ log.timestamp|date:"Y-m-d H:i:s" }} - {{ log.hostname }}</span>
+         <div class="log-card-actions">
+             <button class="btn btn-ghost btn-sm"
+                     hx-get="{% url 'logs:log-panel' %}?log_id={{ log.id }}"
+                     hx-target="#panel-container"
+                     hx-swap="innerHTML"
+                     onclick="event.stopPropagation()">Edit</button>
+             <button class="btn btn-ghost btn-sm text-error"
+                     hx-delete="{% url 'logs:log-delete-htmx' log.id %}"
+                     hx-confirm="Delete this log entry?"
+                     hx-target="body"
+                     hx-disabled-elt="this"
+                     onclick="event.stopPropagation()">Delete</button>
+         </div>
+    </div>
+
+    {% if log.expanded %}
+        <div class="log-card-body">
+            <div class="log-card-fields" data-log-id="{{ log.id }}">
+                <div class="log-field-group field-internal_ip">
+                    <label>Internal IP:</label>
+                    <div>{{ log.internal_ip|default:"-" }}</div>
+                </div>
+                <div class="log-field-group field-external_ip">
+                    <label>External IP:</label>
+                    <div>{{ log.external_ip|default:"-" }}</div>
+                </div>
+                <div class="log-field-group field-mac_address">
+                    <label>MAC Address:</label>
+                    <div>{{ log.mac_address|default:"-" }}</div>
+                </div>
+                <div class="log-field-group field-domain">
+                    <label>Domain:</label>
+                    <div>{{ log.domain|default:"-" }}</div>
+                </div>
+                <div class="log-field-group field-username">
+                    <label>User:</label>
+                    <div>{{ log.username|default:"-" }}</div>
+                </div>
+                <div class="log-field-group field-command">
+                    <label>Command:</label>
+                    <div style="font-family: monospace; white-space: pre-wrap;">{{ log.command|default:"-" }}</div>
+                </div>
+                <div class="log-field-group field-notes">
+                    <label>Notes:</label>
+                    <div>{{ log.notes|default:"-" }}</div>
+                </div>
+                <div class="log-field-group field-filename">
+                    <label>Filename:</label>
+                    <div>{{ log.filename|default:"-" }}</div>
+                </div>
+                <div class="log-field-group field-status">
+                    <label>Status:</label>
+                    <div><span class="badge status-{{ log.status }}">{{ log.status }}</span></div>
+                </div>
+                <div class="log-field-group field-hash_value">
+                    <label>Hash Value:</label>
+                    <div style="font-family: monospace; word-break: break-all;">{{ log.hash_value|default:"-" }}</div>
+                </div>
+            </div>
+
+            <div class="log-field-group" style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+                <label>AI Context</label>
+                <div id="ai-context-{{ log.id }}">
+                    {% if log.ai_context %}
+                        <div style="font-size: 0.9em; line-height: 1.5;">
+                            <strong>Summary:</strong> {{ log.ai_context.summary }}<br/>
+                            <strong>Score:</strong> <span class="badge" style="background-color: {% if log.ai_context.severity_score >= 7 %}#ef4444{% elif log.ai_context.severity_score >= 4 %}#f97316{% else %}#22c55e{% endif %}; color: white;">{{ log.ai_context.severity_score }} / 10</span><br/>
+                            {% if log.ai_context.mitre_techniques %}
+                                <strong>MITRE Techniques:</strong>
+                                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.25rem;">
+                                    {% for t in log.ai_context.mitre_techniques %}
+                                        <span class="badge" style="background-color: #3b82f622; color: #3b82f6; border: 1px solid #3b82f655;">{{ t.technique_id }} - {{ t.technique_name }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <button class="btn btn-outline btn-sm"
+                                hx-post="{% url 'logs:log-ai-context-htmx' log.id %}"
+                                hx-target="#ai-context-{{ log.id }}"
+                                hx-indicator="#ai-spinner-{{ log.id }}"
+                                hx-disabled-elt="this"
+                                onclick="event.stopPropagation()">
+                            Ask AI
+                        </button>
+                        <span id="ai-spinner-{{ log.id }}" class="htmx-indicator"><span class="loading-spinner"></span> Analyzing...</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>

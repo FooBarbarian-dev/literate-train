@@ -3,7 +3,8 @@
         <div class="ti-session-sidebar-top">
             <button class="btn btn-primary btn-sm ti-new-chat-btn"
                     hx-post="{% url 'threat_intel:chat-session-create' %}"
-                    hx-target="#assistant-tab-content">
+                    hx-target="#ti-tab-panel"
+                    hx-disabled-elt="this">
                 + New Chat
             </button>
         </div>
@@ -21,7 +22,8 @@
                 <p>Create a new session or select one from the sidebar to start chatting.</p>
                 <button class="btn btn-primary" style="margin-top: 12px"
                         hx-post="{% url 'threat_intel:chat-session-create' %}"
-                        hx-target="#ti-tab-panel">
+                        hx-target="#ti-tab-panel"
+                        hx-disabled-elt="this">
                     + New Chat
                 </button>
             </div>

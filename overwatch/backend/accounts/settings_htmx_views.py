@@ -22,7 +22,7 @@ def change_password_htmx(request):
         return render(request, 'accounts/settings/partials/password_form.html', {
             'message': 'New passwords do not match.',
             'message_type': 'error'
-        }, status=400)
+        }, status=200)
 
     try:
         validate_password(new_password)
@@ -31,14 +31,14 @@ def change_password_htmx(request):
         return render(request, 'accounts/settings/partials/password_form.html', {
             'message': err_msg,
             'message_type': 'error'
-        }, status=400)
+        }, status=200)
 
     auth_result = authenticate_user(request.user.username, current_password)
     if not auth_result:
         return render(request, 'accounts/settings/partials/password_form.html', {
             'message': 'Current password is incorrect.',
             'message_type': 'error'
-        }, status=400)
+        }, status=200)
 
     change_password(request.user.username, request.user.role, new_password)
 

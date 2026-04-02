@@ -35,7 +35,8 @@
                         <button
                             class="btn btn-sm btn-primary"
                             hx-post="{% url 'operations:set-active-htmx' op.id %}"
-                            hx-target="body">
+                            hx-target="body"
+                            hx-disabled-elt="this">
                             Set Active
                         </button>
                     {% endif %}

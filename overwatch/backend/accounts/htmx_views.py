@@ -17,7 +17,7 @@ def login_page(request):
 def auth_login_htmx(request):
     form = LoginForm(request.POST)
     if not form.is_valid():
-        return render(request, 'accounts/partials/login_form.html', {'form': form}, status=400)
+        return render(request, 'accounts/partials/login_form.html', {'form': form}, status=200)
 
     username = form.cleaned_data['username']
     password = form.cleaned_data['password']
@@ -27,7 +27,7 @@ def auth_login_htmx(request):
         return render(request, 'accounts/partials/login_form.html', {
             'form': form,
             'error': "Invalid credentials. Please try again."
-        }, status=400)
+        }, status=200)
 
     token, payload = issue_token(auth_result["username"], auth_result["role"])
     csrf_token = secrets.token_hex(32)

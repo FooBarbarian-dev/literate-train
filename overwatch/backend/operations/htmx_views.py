@@ -56,7 +56,7 @@ def create_operation_htmx(request):
 
     form = OperationForm(request.POST)
     if not form.is_valid():
-        return render(request, 'operations/partials/create_modal.html', {'form': form}, status=400)
+        return render(request, 'operations/partials/create_modal.html', {'form': form}, status=200)
 
     try:
         create_operation(
@@ -75,7 +75,7 @@ def create_operation_htmx(request):
         return render(request, 'operations/partials/create_modal.html', {
             'form': form,
             'error': str(e)
-        }, status=400)
+        }, status=200)
 
 @require_http_methods(["POST"])
 @htmx_login_required

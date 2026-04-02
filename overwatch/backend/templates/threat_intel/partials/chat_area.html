@@ -12,6 +12,8 @@
     <form hx-post="{% url 'threat_intel:chat-send-message' session.id %}"
           hx-target="#chat-messages-container"
           hx-swap="beforeend"
+          hx-disabled-elt="#chat-submit-btn, .chat-input"
+          hx-indicator="#chat-submit-btn"
           style="display: flex; flex: 1; gap: 8px;">
         {% csrf_token %}
         <textarea
@@ -22,7 +24,7 @@
             required
             onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); this.form.dispatchEvent(new Event('submit', {cancelable: true, bubbles: true})); }"
         ></textarea>
-        <button type="submit" class="btn btn-primary">
+        <button type="submit" class="btn btn-primary" id="chat-submit-btn">
             Send
         </button>
     </form>
